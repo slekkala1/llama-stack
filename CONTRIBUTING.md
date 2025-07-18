@@ -1,200 +1,128 @@
-# Contributing to Llama-Stack
-We want to make contributing to this project as easy and transparent as
-possible.
+## Setting up the environment
 
-## Discussions -> Issues -> Pull Requests
+### With Rye
 
-We actively welcome your pull requests. However, please read the following. This is heavily inspired by [Ghostty](https://github.com/ghostty-org/ghostty/blob/main/CONTRIBUTING.md).
+We use [Rye](https://rye.astral.sh/) to manage dependencies because it will automatically provision a Python environment with the expected Python version. To set it up, run:
 
-If in doubt, please open a [discussion](https://github.com/meta-llama/llama-stack/discussions); we can always convert that to an issue later.
-
-**I'd like to contribute!**
-
-All issues are actionable (please report if they are not.) Pick one and start working on it. Thank you.
-If you need help or guidance, comment on the issue. Issues that are extra friendly to new contributors are tagged with "contributor friendly".
-
-**I have a bug!**
-
-1. Search the issue tracker and discussions for similar issues.
-2. If you don't have steps to reproduce, open a discussion.
-3. If you have steps to reproduce, open an issue.
-
-**I have an idea for a feature!**
-
-1. Open a discussion.
-
-**I've implemented a feature!**
-
-1. If there is an issue for the feature, open a pull request.
-2. If there is no issue, open a discussion and link to your branch.
-
-**I have a question!**
-
-1. Open a discussion or use [Discord](https://discord.gg/llama-stack).
-
-
-**Opening a Pull Request**
-
-1. Fork the repo and create your branch from `main`.
-2. If you've changed APIs, update the documentation.
-3. Ensure the test suite passes.
-4. Make sure your code lints using `pre-commit`.
-5. If you haven't already, complete the Contributor License Agreement ("CLA").
-6. Ensure your pull request follows the [conventional commits format](https://www.conventionalcommits.org/en/v1.0.0/).
-
-## Contributor License Agreement ("CLA")
-In order to accept your pull request, we need you to submit a CLA. You only need
-to do this once to work on any of Meta's open source projects.
-
-Complete your CLA here: <https://code.facebook.com/cla>
-
-## Issues
-We use GitHub issues to track public bugs. Please ensure your description is
-clear and has sufficient instructions to be able to reproduce the issue.
-
-Meta has a [bounty program](http://facebook.com/whitehat/info) for the safe
-disclosure of security bugs. In those cases, please go through the process
-outlined on that page and do not file a public issue.
-
-
-## Set up your development environment
-
-We use [uv](https://github.com/astral-sh/uv) to manage python dependencies and virtual environments.
-You can install `uv` by following this [guide](https://docs.astral.sh/uv/getting-started/installation/).
-
-You can install the dependencies by running:
-
-```bash
-cd llama-stack
-uv sync --group dev
-uv pip install -e .
-source .venv/bin/activate
+```sh
+$ ./scripts/bootstrap
 ```
 
-> [!NOTE]
-> You can use a specific version of Python with `uv` by adding the `--python <version>` flag (e.g. `--python 3.12`)
-> Otherwise, `uv` will automatically select a Python version according to the `requires-python` section of the `pyproject.toml`.
-> For more info, see the [uv docs around Python versions](https://docs.astral.sh/uv/concepts/python-versions/).
+Or [install Rye manually](https://rye.astral.sh/guide/installation/) and run:
 
-Note that you can create a dotenv file `.env` that includes necessary environment variables:
-```
-LLAMA_STACK_BASE_URL=http://localhost:8321
-LLAMA_STACK_CLIENT_LOG=debug
-LLAMA_STACK_PORT=8321
-LLAMA_STACK_CONFIG=<provider-name>
-TAVILY_SEARCH_API_KEY=
-BRAVE_SEARCH_API_KEY=
+```sh
+$ rye sync --all-features
 ```
 
-And then use this dotenv file when running client SDK tests via the following:
-```bash
-uv run --env-file .env -- pytest -v tests/integration/inference/test_text_inference.py --text-model=meta-llama/Llama-3.1-8B-Instruct
+You can then run scripts using `rye run python script.py` or by activating the virtual environment:
+
+```sh
+# Activate the virtual environment - https://docs.python.org/3/library/venv.html#how-venvs-work
+$ source .venv/bin/activate
+
+# now you can omit the `rye run` prefix
+$ python script.py
 ```
 
-## Pre-commit Hooks
+### Without Rye
 
-We use [pre-commit](https://pre-commit.com/) to run linting and formatting checks on your code. You can install the pre-commit hooks by running:
+Alternatively if you don't want to install `Rye`, you can stick with the standard `pip` setup by ensuring you have the Python version specified in `.python-version`, create a virtual environment however you desire and then install dependencies using this command:
 
-```bash
-uv run pre-commit install
+```sh
+$ pip install -r requirements-dev.lock
 ```
 
-After that, pre-commit hooks will run automatically before each commit.
+## Modifying/Adding code
 
-Alternatively, if you don't want to install the pre-commit hooks, you can run the checks manually by running:
+Most of the SDK is generated code. Modifications to code will be persisted between generations, but may
+result in merge conflicts between manual patches and changes from the generator. The generator will never
+modify the contents of the `src/llama_stack_cli/lib/` and `examples/` directories.
 
-```bash
-uv run pre-commit run --all-files
+## Adding and running examples
+
+All files in the `examples/` directory are not modified by the generator and can be freely edited or added to.
+
+```py
+# add an example to examples/<your-example>.py
+
+#!/usr/bin/env -S rye run python
+…
 ```
 
-> [!CAUTION]
-> Before pushing your changes, make sure that the pre-commit hooks have passed successfully.
+```sh
+$ chmod +x examples/<your-example>.py
+# run the example against your api
+$ ./examples/<your-example>.py
+```
+
+## Using the repository from source
+
+If you’d like to use the repository from source, you can either install from git or link to a cloned repository:
+
+To install via git:
+
+```sh
+$ pip install git+ssh://git@github.com/stainless-sdks/llama-stack-cli-python.git
+```
+
+Alternatively, you can build from source and install the wheel file:
+
+Building this package will create two files in the `dist/` directory, a `.tar.gz` containing the source files and a `.whl` that can be used to install the package efficiently.
+
+To create a distributable version of the library, all you have to do is run this command:
+
+```sh
+$ rye build
+# or
+$ python -m build
+```
+
+Then to install:
+
+```sh
+$ pip install ./path-to-wheel-file.whl
+```
 
 ## Running tests
 
-You can find the Llama Stack testing documentation [here](https://github.com/meta-llama/llama-stack/blob/main/tests/README.md).
+Most tests require you to [set up a mock server](https://github.com/stoplightio/prism) against the OpenAPI spec to run the tests.
 
-## Adding a new dependency to the project
-
-To add a new dependency to the project, you can use the `uv` command. For example, to add `foo` to the project, you can run:
-
-```bash
-uv add foo
-uv sync
+```sh
+# you will need npm installed
+$ npx prism mock path/to/your/openapi.yml
 ```
 
-## Coding Style
-
-* Comments should provide meaningful insights into the code. Avoid filler comments that simply
-  describe the next step, as they create unnecessary clutter, same goes for docstrings.
-* Prefer comments to clarify surprising behavior and/or relationships between parts of the code
-  rather than explain what the next line of code does.
-* Catching exceptions, prefer using a specific exception type rather than a broad catch-all like
-  `Exception`.
-* Error messages should be prefixed with "Failed to ..."
-* 4 spaces for indentation rather than tab
-* When using `# noqa` to suppress a style or linter warning, include a comment explaining the
-  justification for bypassing the check.
-* When using `# type: ignore` to suppress a mypy warning, include a comment explaining the
-  justification for bypassing the check.
-* Don't use unicode characters in the codebase. ASCII-only is preferred for compatibility or
-  readability reasons.
-* Providers configuration class should be Pydantic Field class. It should have a `description` field
-  that describes the configuration. These descriptions will be used to generate the provider documentation.
-
-## Common Tasks
-
-Some tips about common tasks you work on while contributing to Llama Stack:
-
-### Using `llama stack build`
-
-Building a stack image (conda / docker) will use the production version of the `llama-stack` and `llama-stack-client` packages. If you are developing with a llama-stack repository checked out and need your code to be reflected in the stack image, set `LLAMA_STACK_DIR` and `LLAMA_STACK_CLIENT_DIR` to the appropriate checked out directories when running any of the `llama` CLI commands.
-
-Example:
-```bash
-cd work/
-git clone https://github.com/meta-llama/llama-stack.git
-git clone https://github.com/meta-llama/llama-stack-client-python.git
-cd llama-stack
-LLAMA_STACK_DIR=$(pwd) LLAMA_STACK_CLIENT_DIR=../llama-stack-client-python llama stack build --template <...>
+```sh
+$ ./scripts/test
 ```
 
-### Updating distribution configurations
+## Linting and formatting
 
-If you have made changes to a provider's configuration in any form (introducing a new config key, or
-changing models, etc.), you should run `./scripts/distro_codegen.py` to re-generate various YAML
-files as well as the documentation. You should not change `docs/source/.../distributions/` files
-manually as they are auto-generated.
+This repository uses [ruff](https://github.com/astral-sh/ruff) and
+[black](https://github.com/psf/black) to format the code in the repository.
 
-### Updating the provider documentation
+To lint:
 
-If you have made changes to a provider's configuration, you should run `./scripts/provider_codegen.py`
-to re-generate the documentation. You should not change `docs/source/.../providers/` files manually
-as they are auto-generated.
-Note that the provider "description" field will be used to generate the provider documentation.
-
-### Building the Documentation
-
-If you are making changes to the documentation at [https://llama-stack.readthedocs.io/en/latest/](https://llama-stack.readthedocs.io/en/latest/), you can use the following command to build the documentation and preview your changes. You will need [Sphinx](https://www.sphinx-doc.org/en/master/) and the readthedocs theme.
-
-```bash
-# This rebuilds the documentation pages.
-uv run --group docs make -C docs/ html
-
-# This will start a local server (usually at http://127.0.0.1:8000) that automatically rebuilds and refreshes when you make changes to the documentation.
-uv run --group docs sphinx-autobuild docs/source docs/build/html --write-all
+```sh
+$ ./scripts/lint
 ```
 
-### Update API Documentation
+To format and fix all ruff issues automatically:
 
-If you modify or add new API endpoints, update the API documentation accordingly. You can do this by running the following command:
-
-```bash
-uv run ./docs/openapi_generator/run_openapi_generator.sh
+```sh
+$ ./scripts/format
 ```
 
-The generated API documentation will be available in `docs/_static/`. Make sure to review the changes before committing.
+## Publishing and releases
 
-## License
-By contributing to Llama, you agree that your contributions will be licensed
-under the LICENSE file in the root directory of this source tree.
+Changes made to this repository via the automated release PR pipeline should publish to PyPI automatically. If
+the changes aren't made through the automated pipeline, you may want to make releases manually.
+
+### Publish with a GitHub workflow
+
+You can release to package managers by using [the `Publish PyPI` GitHub action](https://www.github.com/stainless-sdks/llama-stack-cli-python/actions/workflows/publish-pypi.yml). This requires a setup organization or repository secret to be set up.
+
+### Publish manually
+
+If you need to manually release a package, you can run the `bin/publish-pypi` script with a `PYPI_TOKEN` set on
+the environment.

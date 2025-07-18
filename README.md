@@ -1,177 +1,395 @@
-# Llama Stack
+# Llama Stack Cli Python API library
 
-[![PyPI version](https://img.shields.io/pypi/v/llama_stack.svg)](https://pypi.org/project/llama_stack/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/llama-stack)](https://pypi.org/project/llama-stack/)
-[![License](https://img.shields.io/pypi/l/llama_stack.svg)](https://github.com/meta-llama/llama-stack/blob/main/LICENSE)
-[![Discord](https://img.shields.io/discord/1257833999603335178?color=6A7EC2&logo=discord&logoColor=ffffff)](https://discord.gg/llama-stack)
-[![Unit Tests](https://github.com/meta-llama/llama-stack/actions/workflows/unit-tests.yml/badge.svg?branch=main)](https://github.com/meta-llama/llama-stack/actions/workflows/unit-tests.yml?query=branch%3Amain)
-[![Integration Tests](https://github.com/meta-llama/llama-stack/actions/workflows/integration-tests.yml/badge.svg?branch=main)](https://github.com/meta-llama/llama-stack/actions/workflows/integration-tests.yml?query=branch%3Amain)
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/llama_stack_cli.svg?label=pypi%20(stable))](https://pypi.org/project/llama_stack_cli/)
 
-[**Quick Start**](https://llama-stack.readthedocs.io/en/latest/getting_started/index.html) | [**Documentation**](https://llama-stack.readthedocs.io/en/latest/index.html) | [**Colab Notebook**](./docs/getting_started.ipynb) | [**Discord**](https://discord.gg/llama-stack)
+The Llama Stack Cli Python library provides convenient access to the Llama Stack Cli REST API from any Python 3.8+
+application. The library includes type definitions for all request params and response fields,
+and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).
 
-### ✨🎉 Llama 4 Support  🎉✨
-We released [Version 0.2.0](https://github.com/meta-llama/llama-stack/releases/tag/v0.2.0) with support for the Llama 4 herd of models released by Meta.
+It is generated with [Stainless](https://www.stainless.com/).
 
-<details>
+## Documentation
 
-<summary>👋 Click here to see how to run Llama 4 models on Llama Stack </summary>
+The full API of this library can be found in [api.md](api.md).
 
-\
-*Note you need 8xH100 GPU-host to run these models*
+## Installation
 
-```bash
-pip install -U llama_stack
-
-MODEL="Llama-4-Scout-17B-16E-Instruct"
-# get meta url from llama.com
-llama model download --source meta --model-id $MODEL --meta-url <META_URL>
-
-# start a llama stack server
-INFERENCE_MODEL=meta-llama/$MODEL llama stack build --run --template meta-reference-gpu
-
-# install client to interact with the server
-pip install llama-stack-client
+```sh
+# install from this staging repo
+pip install git+ssh://git@github.com/stainless-sdks/llama-stack-cli-python.git
 ```
-### CLI
-```bash
-# Run a chat completion
-MODEL="Llama-4-Scout-17B-16E-Instruct"
 
-llama-stack-client --endpoint http://localhost:8321 \
-inference chat-completion \
---model-id meta-llama/$MODEL \
---message "write a haiku for meta's llama 4 models"
+> [!NOTE]
+> Once this package is [published to PyPI](https://www.stainless.com/docs/guides/publish), this will become: `pip install --pre llama_stack_cli`
 
-ChatCompletionResponse(
-    completion_message=CompletionMessage(content="Whispers in code born\nLlama's gentle, wise heartbeat\nFuture's soft unfold", role='assistant', stop_reason='end_of_turn', tool_calls=[]),
-    logprobs=None,
-    metrics=[Metric(metric='prompt_tokens', value=21.0, unit=None), Metric(metric='completion_tokens', value=28.0, unit=None), Metric(metric='total_tokens', value=49.0, unit=None)]
-)
-```
-### Python SDK
+## Usage
+
+The full API of this library can be found in [api.md](api.md).
+
 ```python
-from llama_stack_client import LlamaStackClient
+import os
+from llama_stack_cli import LlamaStackCli
 
-client = LlamaStackClient(base_url=f"http://localhost:8321")
-
-model_id = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
-prompt = "Write a haiku about coding"
-
-print(f"User> {prompt}")
-response = client.inference.chat_completion(
-    model_id=model_id,
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": prompt},
-    ],
+client = LlamaStackCli(
+    api_key=os.environ.get("PETSTORE_API_KEY"),  # This is the default and can be omitted
 )
-print(f"Assistant> {response.completion_message.content}")
-```
-As more providers start supporting Llama 4, you can use them in Llama Stack as well. We are adding to the list. Stay tuned!
 
-
-</details>
-
-### 🚀 One-Line Installer 🚀
-
-To try Llama Stack locally, run:
-
-```bash
-curl -LsSf https://github.com/meta-llama/llama-stack/raw/main/scripts/install.sh | bash
+order = client.store.order.create(
+    pet_id=1,
+    quantity=1,
+    status="placed",
+)
+print(order.id)
 ```
 
-### Overview
+While you can provide an `api_key` keyword argument,
+we recommend using [python-dotenv](https://pypi.org/project/python-dotenv/)
+to add `PETSTORE_API_KEY="My API Key"` to your `.env` file
+so that your API Key is not stored in source control.
 
-Llama Stack standardizes the core building blocks that simplify AI application development. It codifies best practices across the Llama ecosystem. More specifically, it provides
+## Async usage
 
-- **Unified API layer** for Inference, RAG, Agents, Tools, Safety, Evals, and Telemetry.
-- **Plugin architecture** to support the rich ecosystem of different API implementations in various environments, including local development, on-premises, cloud, and mobile.
-- **Prepackaged verified distributions** which offer a one-stop solution for developers to get started quickly and reliably in any environment.
-- **Multiple developer interfaces** like CLI and SDKs for Python, Typescript, iOS, and Android.
-- **Standalone applications** as examples for how to build production-grade AI applications with Llama Stack.
+Simply import `AsyncLlamaStackCli` instead of `LlamaStackCli` and use `await` with each API call:
 
-<div style="text-align: center;">
-  <img
-    src="https://github.com/user-attachments/assets/33d9576d-95ea-468d-95e2-8fa233205a50"
-    width="480"
-    title="Llama Stack"
-    alt="Llama Stack"
-  />
-</div>
+```python
+import os
+import asyncio
+from llama_stack_cli import AsyncLlamaStackCli
 
-### Llama Stack Benefits
-- **Flexible Options**: Developers can choose their preferred infrastructure without changing APIs and enjoy flexible deployment choices.
-- **Consistent Experience**: With its unified APIs, Llama Stack makes it easier to build, test, and deploy AI applications with consistent application behavior.
-- **Robust Ecosystem**: Llama Stack is already integrated with distribution partners (cloud providers, hardware vendors, and AI-focused companies) that offer tailored infrastructure, software, and services for deploying Llama models.
+client = AsyncLlamaStackCli(
+    api_key=os.environ.get("PETSTORE_API_KEY"),  # This is the default and can be omitted
+)
 
-By reducing friction and complexity, Llama Stack empowers developers to focus on what they do best: building transformative generative AI applications.
 
-### API Providers
-Here is a list of the various API providers and available distributions that can help developers get started easily with Llama Stack.
-Please checkout for [full list](https://llama-stack.readthedocs.io/en/latest/providers/index.html)
+async def main() -> None:
+    order = await client.store.order.create(
+        pet_id=1,
+        quantity=1,
+        status="placed",
+    )
+    print(order.id)
 
-| API Provider Builder | Environments | Agents | Inference | VectorIO | Safety | Telemetry | Post Training | Eval | DatasetIO |
-|:-------------------:|:------------:|:------:|:---------:|:--------:|:------:|:---------:|:-------------:|:----:|:--------:|
-| Meta Reference | Single Node | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SambaNova | Hosted | | ✅ | | ✅ | | | | |
-| Cerebras | Hosted | | ✅ | | | | | | |
-| Fireworks | Hosted | ✅ | ✅ | ✅ | | | | | |
-| AWS Bedrock | Hosted | | ✅ | | ✅ | | | | |
-| Together | Hosted | ✅ | ✅ | | ✅ | | | | |
-| Groq | Hosted | | ✅ | | | | | | |
-| Ollama | Single Node | | ✅ | | | | | | |
-| TGI | Hosted/Single Node | | ✅ | | | | | | |
-| NVIDIA NIM | Hosted/Single Node | | ✅ | | ✅ | | | | |
-| ChromaDB | Hosted/Single Node | | | ✅ | | | | | |
-| PG Vector | Single Node | | | ✅ | | | | | |
-| PyTorch ExecuTorch | On-device iOS | ✅ | ✅ | | | | | | |
-| vLLM | Single Node | | ✅ | | | | | | |
-| OpenAI | Hosted | | ✅ | | | | | | |
-| Anthropic | Hosted | | ✅ | | | | | | |
-| Gemini | Hosted | | ✅ | | | | | | |
-| WatsonX | Hosted | | ✅ | | | | | | |
-| HuggingFace | Single Node | | | | | | ✅ | | ✅ |
-| TorchTune | Single Node | | | | | | ✅ | | |
-| NVIDIA NEMO | Hosted | | ✅ | ✅ | | | ✅ | ✅ | ✅ |
-| NVIDIA | Hosted | | | | | | ✅ | ✅ | ✅ |
 
-> **Note**: Additional providers are available through external packages. See [External Providers](https://llama-stack.readthedocs.io/en/latest/providers/external.html) documentation.
+asyncio.run(main())
+```
 
-### Distributions
+Functionality between the synchronous and asynchronous clients is otherwise identical.
 
-A Llama Stack Distribution (or "distro") is a pre-configured bundle of provider implementations for each API component. Distributions make it easy to get started with a specific deployment scenario - you can begin with a local development setup (eg. ollama) and seamlessly transition to production (eg. Fireworks) without changing your application code.
-Here are some of the distributions we support:
+### With aiohttp
 
-|               **Distribution**                |                                                                    **Llama Stack Docker**                                                                     |                                                 Start This Distribution                                                  |
-|:---------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------------------:|:------------------------------------------------------------------------------------------------------------------------:|
-|                Starter Distribution                 |           [llamastack/distribution-starter](https://hub.docker.com/repository/docker/llamastack/distribution-starter/general)           |      [Guide](https://llama-stack.readthedocs.io/en/latest/distributions/self_hosted_distro/starter.html)      |
-|                Meta Reference                 |           [llamastack/distribution-meta-reference-gpu](https://hub.docker.com/repository/docker/llamastack/distribution-meta-reference-gpu/general)           |      [Guide](https://llama-stack.readthedocs.io/en/latest/distributions/self_hosted_distro/meta-reference-gpu.html)      |
-|                   PostgreSQL                  |                [llamastack/distribution-postgres-demo](https://hub.docker.com/repository/docker/llamastack/distribution-postgres-demo/general)                |                  |
+By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.
 
-### Documentation
+You can enable this by installing `aiohttp`:
 
-Please checkout our [Documentation](https://llama-stack.readthedocs.io/en/latest/index.html) page for more details.
+```sh
+# install from this staging repo
+pip install 'llama_stack_cli[aiohttp] @ git+ssh://git@github.com/stainless-sdks/llama-stack-cli-python.git'
+```
 
-* CLI references
-    * [llama (server-side) CLI Reference](https://llama-stack.readthedocs.io/en/latest/references/llama_cli_reference/index.html): Guide for using the `llama` CLI to work with Llama models (download, study prompts), and building/starting a Llama Stack distribution.
-    * [llama (client-side) CLI Reference](https://llama-stack.readthedocs.io/en/latest/references/llama_stack_client_cli_reference.html): Guide for using the `llama-stack-client` CLI, which allows you to query information about the distribution.
-* Getting Started
-    * [Quick guide to start a Llama Stack server](https://llama-stack.readthedocs.io/en/latest/getting_started/index.html).
-    * [Jupyter notebook](./docs/getting_started.ipynb) to walk-through how to use simple text and vision inference llama_stack_client APIs
-    * The complete Llama Stack lesson [Colab notebook](https://colab.research.google.com/drive/1dtVmxotBsI4cGZQNsJRYPrLiDeT0Wnwt) of the new [Llama 3.2 course on Deeplearning.ai](https://learn.deeplearning.ai/courses/introducing-multimodal-llama-3-2/lesson/8/llama-stack).
-    * A [Zero-to-Hero Guide](https://github.com/meta-llama/llama-stack/tree/main/docs/zero_to_hero_guide) that guide you through all the key components of llama stack with code samples.
-* [Contributing](CONTRIBUTING.md)
-    * [Adding a new API Provider](https://llama-stack.readthedocs.io/en/latest/contributing/new_api_provider.html) to walk-through how to add a new API provider.
+Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:
 
-### Llama Stack Client SDKs
+```python
+import asyncio
+from llama_stack_cli import DefaultAioHttpClient
+from llama_stack_cli import AsyncLlamaStackCli
 
-|  **Language** |  **Client SDK** | **Package** |
-| :----: | :----: | :----: |
-| Python |  [llama-stack-client-python](https://github.com/meta-llama/llama-stack-client-python) | [![PyPI version](https://img.shields.io/pypi/v/llama_stack_client.svg)](https://pypi.org/project/llama_stack_client/)
-| Swift  | [llama-stack-client-swift](https://github.com/meta-llama/llama-stack-client-swift) | [![Swift Package Index](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2Fmeta-llama%2Fllama-stack-client-swift%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/meta-llama/llama-stack-client-swift)
-| Typescript   | [llama-stack-client-typescript](https://github.com/meta-llama/llama-stack-client-typescript) | [![NPM version](https://img.shields.io/npm/v/llama-stack-client.svg)](https://npmjs.org/package/llama-stack-client)
-| Kotlin | [llama-stack-client-kotlin](https://github.com/meta-llama/llama-stack-client-kotlin) | [![Maven version](https://img.shields.io/maven-central/v/com.llama.llamastack/llama-stack-client-kotlin)](https://central.sonatype.com/artifact/com.llama.llamastack/llama-stack-client-kotlin)
 
-Check out our client SDKs for connecting to a Llama Stack server in your preferred language, you can choose from [python](https://github.com/meta-llama/llama-stack-client-python), [typescript](https://github.com/meta-llama/llama-stack-client-typescript), [swift](https://github.com/meta-llama/llama-stack-client-swift), and [kotlin](https://github.com/meta-llama/llama-stack-client-kotlin) programming languages to quickly build your applications.
+async def main() -> None:
+    async with AsyncLlamaStackCli(
+        api_key="My API Key",
+        http_client=DefaultAioHttpClient(),
+    ) as client:
+        order = await client.store.order.create(
+            pet_id=1,
+            quantity=1,
+            status="placed",
+        )
+        print(order.id)
 
-You can find more example scripts with client SDKs to talk with the Llama Stack server in our [llama-stack-apps](https://github.com/meta-llama/llama-stack-apps/tree/main/examples) repo.
+
+asyncio.run(main())
+```
+
+## Using types
+
+Nested request parameters are [TypedDicts](https://docs.python.org/3/library/typing.html#typing.TypedDict). Responses are [Pydantic models](https://docs.pydantic.dev) which also provide helper methods for things like:
+
+- Serializing back into JSON, `model.to_json()`
+- Converting to a dictionary, `model.to_dict()`
+
+Typed requests and responses provide autocomplete and documentation within your editor. If you would like to see type errors in VS Code to help catch bugs earlier, set `python.analysis.typeCheckingMode` to `basic`.
+
+## Nested params
+
+Nested parameters are dictionaries, typed using `TypedDict`, for example:
+
+```python
+from llama_stack_cli import LlamaStackCli
+
+client = LlamaStackCli()
+
+pet = client.pet.create(
+    name="doggie",
+    photo_urls=["string"],
+    category={},
+)
+print(pet.category)
+```
+
+## Handling errors
+
+When the library is unable to connect to the API (for example, due to network connection problems or a timeout), a subclass of `llama_stack_cli.APIConnectionError` is raised.
+
+When the API returns a non-success status code (that is, 4xx or 5xx
+response), a subclass of `llama_stack_cli.APIStatusError` is raised, containing `status_code` and `response` properties.
+
+All errors inherit from `llama_stack_cli.APIError`.
+
+```python
+import llama_stack_cli
+from llama_stack_cli import LlamaStackCli
+
+client = LlamaStackCli()
+
+try:
+    client.store.list_inventory()
+except llama_stack_cli.APIConnectionError as e:
+    print("The server could not be reached")
+    print(e.__cause__)  # an underlying Exception, likely raised within httpx.
+except llama_stack_cli.RateLimitError as e:
+    print("A 429 status code was received; we should back off a bit.")
+except llama_stack_cli.APIStatusError as e:
+    print("Another non-200-range status code was received")
+    print(e.status_code)
+    print(e.response)
+```
+
+Error codes are as follows:
+
+| Status Code | Error Type                 |
+| ----------- | -------------------------- |
+| 400         | `BadRequestError`          |
+| 401         | `AuthenticationError`      |
+| 403         | `PermissionDeniedError`    |
+| 404         | `NotFoundError`            |
+| 422         | `UnprocessableEntityError` |
+| 429         | `RateLimitError`           |
+| >=500       | `InternalServerError`      |
+| N/A         | `APIConnectionError`       |
+
+### Retries
+
+Certain errors are automatically retried 2 times by default, with a short exponential backoff.
+Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,
+429 Rate Limit, and >=500 Internal errors are all retried by default.
+
+You can use the `max_retries` option to configure or disable retry settings:
+
+```python
+from llama_stack_cli import LlamaStackCli
+
+# Configure the default for all requests:
+client = LlamaStackCli(
+    # default is 2
+    max_retries=0,
+)
+
+# Or, configure per-request:
+client.with_options(max_retries=5).store.list_inventory()
+```
+
+### Timeouts
+
+By default requests time out after 1 minute. You can configure this with a `timeout` option,
+which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:
+
+```python
+from llama_stack_cli import LlamaStackCli
+
+# Configure the default for all requests:
+client = LlamaStackCli(
+    # 20 seconds (default is 1 minute)
+    timeout=20.0,
+)
+
+# More granular control:
+client = LlamaStackCli(
+    timeout=httpx.Timeout(60.0, read=5.0, write=10.0, connect=2.0),
+)
+
+# Override per-request:
+client.with_options(timeout=5.0).store.list_inventory()
+```
+
+On timeout, an `APITimeoutError` is thrown.
+
+Note that requests that time out are [retried twice by default](#retries).
+
+## Advanced
+
+### Logging
+
+We use the standard library [`logging`](https://docs.python.org/3/library/logging.html) module.
+
+You can enable logging by setting the environment variable `LLAMA_STACK_CLI_LOG` to `info`.
+
+```shell
+$ export LLAMA_STACK_CLI_LOG=info
+```
+
+Or to `debug` for more verbose logging.
+
+### How to tell whether `None` means `null` or missing
+
+In an API response, a field may be explicitly `null`, or missing entirely; in either case, its value is `None` in this library. You can differentiate the two cases with `.model_fields_set`:
+
+```py
+if response.my_field is None:
+  if 'my_field' not in response.model_fields_set:
+    print('Got json like {}, without a "my_field" key present at all.')
+  else:
+    print('Got json like {"my_field": null}.')
+```
+
+### Accessing raw response data (e.g. headers)
+
+The "raw" Response object can be accessed by prefixing `.with_raw_response.` to any HTTP method call, e.g.,
+
+```py
+from llama_stack_cli import LlamaStackCli
+
+client = LlamaStackCli()
+response = client.store.with_raw_response.list_inventory()
+print(response.headers.get('X-My-Header'))
+
+store = response.parse()  # get the object that `store.list_inventory()` would have returned
+print(store)
+```
+
+These methods return an [`APIResponse`](https://github.com/stainless-sdks/llama-stack-cli-python/tree/main/src/llama_stack_cli/_response.py) object.
+
+The async client returns an [`AsyncAPIResponse`](https://github.com/stainless-sdks/llama-stack-cli-python/tree/main/src/llama_stack_cli/_response.py) with the same structure, the only difference being `await`able methods for reading the response content.
+
+#### `.with_streaming_response`
+
+The above interface eagerly reads the full response body when you make the request, which may not always be what you want.
+
+To stream the response body, use `.with_streaming_response` instead, which requires a context manager and only reads the response body once you call `.read()`, `.text()`, `.json()`, `.iter_bytes()`, `.iter_text()`, `.iter_lines()` or `.parse()`. In the async client, these are async methods.
+
+```python
+with client.store.with_streaming_response.list_inventory() as response:
+    print(response.headers.get("X-My-Header"))
+
+    for line in response.iter_lines():
+        print(line)
+```
+
+The context manager is required so that the response will reliably be closed.
+
+### Making custom/undocumented requests
+
+This library is typed for convenient access to the documented API.
+
+If you need to access undocumented endpoints, params, or response properties, the library can still be used.
+
+#### Undocumented endpoints
+
+To make requests to undocumented endpoints, you can make requests using `client.get`, `client.post`, and other
+http verbs. Options on the client will be respected (such as retries) when making this request.
+
+```py
+import httpx
+
+response = client.post(
+    "/foo",
+    cast_to=httpx.Response,
+    body={"my_param": True},
+)
+
+print(response.headers.get("x-foo"))
+```
+
+#### Undocumented request params
+
+If you want to explicitly send an extra param, you can do so with the `extra_query`, `extra_body`, and `extra_headers` request
+options.
+
+#### Undocumented response properties
+
+To access undocumented response properties, you can access the extra fields like `response.unknown_prop`. You
+can also get all the extra fields on the Pydantic model as a dict with
+[`response.model_extra`](https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel.model_extra).
+
+### Configuring the HTTP client
+
+You can directly override the [httpx client](https://www.python-httpx.org/api/#client) to customize it for your use case, including:
+
+- Support for [proxies](https://www.python-httpx.org/advanced/proxies/)
+- Custom [transports](https://www.python-httpx.org/advanced/transports/)
+- Additional [advanced](https://www.python-httpx.org/advanced/clients/) functionality
+
+```python
+import httpx
+from llama_stack_cli import LlamaStackCli, DefaultHttpxClient
+
+client = LlamaStackCli(
+    # Or use the `LLAMA_STACK_CLI_BASE_URL` env var
+    base_url="http://my.test.server.example.com:8083",
+    http_client=DefaultHttpxClient(
+        proxy="http://my.test.proxy.example.com",
+        transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    ),
+)
+```
+
+You can also customize the client on a per-request basis by using `with_options()`:
+
+```python
+client.with_options(http_client=DefaultHttpxClient(...))
+```
+
+### Managing HTTP resources
+
+By default the library closes underlying HTTP connections whenever the client is [garbage collected](https://docs.python.org/3/reference/datamodel.html#object.__del__). You can manually close the client using the `.close()` method if desired, or with a context manager that closes when exiting.
+
+```py
+from llama_stack_cli import LlamaStackCli
+
+with LlamaStackCli() as client:
+  # make requests here
+  ...
+
+# HTTP client is now closed
+```
+
+## Versioning
+
+This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:
+
+1. Changes that only affect static types, without breaking runtime behavior.
+2. Changes to library internals which are technically public but not intended or documented for external use. _(Please open a GitHub issue to let us know if you are relying on such internals.)_
+3. Changes that we do not expect to impact the vast majority of users in practice.
+
+We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.
+
+We are keen for your feedback; please open an [issue](https://www.github.com/stainless-sdks/llama-stack-cli-python/issues) with questions, bugs, or suggestions.
+
+### Determining the installed version
+
+If you've upgraded to the latest version but aren't seeing any new features you were expecting then your python environment is likely still using an older version.
+
+You can determine the version that is being used at runtime with:
+
+```py
+import llama_stack_cli
+print(llama_stack_cli.__version__)
+```
+
+## Requirements
+
+Python 3.8 or higher.
+
+## Contributing
+
+See [the contributing documentation](./CONTRIBUTING.md).
