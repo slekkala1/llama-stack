@@ -214,7 +214,6 @@ ignore = [
 
     # These are the additional ones we started ignoring after moving to ruff. We should look into each one of them later.
     "C901", # Complexity of the function is too high
-    "UP040", # TypeAlias vs type keyword - disabled due to Pydantic compatibility
 ]
 unfixable = [
     "PLE2515",
