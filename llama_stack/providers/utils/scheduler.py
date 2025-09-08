@@ -11,7 +11,7 @@ import threading
 from collections.abc import Callable, Coroutine, Iterable
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import Any, TypeAlias
 
 from pydantic import BaseModel
 
@@ -30,8 +30,8 @@ class JobStatus(Enum):
     completed = "completed"
 
 
-type JobID = str
-type JobType = str
+JobID: TypeAlias = str
+JobType: TypeAlias = str
 
 
 class JobArtifact(BaseModel):
