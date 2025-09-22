@@ -5,7 +5,6 @@
 # the root directory of this source tree.
 
 from collections.abc import AsyncGenerator
-from typing import Any
 
 from fireworks.client import Fireworks
 
@@ -23,7 +22,6 @@ from llama_stack.apis.inference import (
     Inference,
     LogProbConfig,
     Message,
-    OpenAICompletion,
     ResponseFormat,
     ResponseFormatType,
     SamplingParams,
@@ -281,52 +279,3 @@ class FireworksInferenceAdapter(OpenAIMixin, ModelRegistryHelper, Inference, Nee
 
         embeddings = [data.embedding for data in response.data]
         return EmbeddingsResponse(embeddings=embeddings)
-
-    async def openai_completion(
-        self,
-        model: str,
-        prompt: str | list[str] | list[int] | list[list[int]],
-        best_of: int | None = None,
-        echo: bool | None = None,
-        frequency_penalty: float | None = None,
-        logit_bias: dict[str, float] | None = None,
-        logprobs: bool | None = None,
-        max_tokens: int | None = None,
-        n: int | None = None,
-        presence_penalty: float | None = None,
-        seed: int | None = None,
-        stop: str | list[str] | None = None,
-        stream: bool | None = None,
-        stream_options: dict[str, Any] | None = None,
-        temperature: float | None = None,
-        top_p: float | None = None,
-        user: str | None = None,
-        guided_choice: list[str] | None = None,
-        prompt_logprobs: int | None = None,
-        suffix: str | None = None,
-    ) -> OpenAICompletion:
-        if isinstance(prompt, str):
-            prompt = self._preprocess_prompt_for_fireworks(prompt)
-
-        return await super().openai_completion(
-            model=model,
-            prompt=prompt,
-            best_of=best_of,
-            echo=echo,
-            frequency_penalty=frequency_penalty,
-            logit_bias=logit_bias,
-            logprobs=logprobs,
-            max_tokens=max_tokens,
-            n=n,
-            presence_penalty=presence_penalty,
-            seed=seed,
-            stop=stop,
-            stream=stream,
-            stream_options=stream_options,
-            temperature=temperature,
-            top_p=top_p,
-            user=user,
-            guided_choice=guided_choice,
-            prompt_logprobs=prompt_logprobs,
-            suffix=suffix,
-        )
