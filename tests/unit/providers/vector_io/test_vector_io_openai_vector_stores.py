@@ -13,7 +13,12 @@ import pytest
 
 from llama_stack.apis.common.errors import VectorStoreNotFoundError
 from llama_stack.apis.vector_dbs import VectorDB
-from llama_stack.apis.vector_io import Chunk, QueryChunksResponse
+from llama_stack.apis.vector_io import (
+    Chunk,
+    QueryChunksResponse,
+    VectorStoreChunkingStrategyAuto,
+    VectorStoreFileObject,
+)
 from llama_stack.providers.remote.vector_io.milvus.milvus import VECTOR_DBS_PREFIX
 
 # This test is a unit test for the inline VectorIO providers. This should only contain
@@ -311,7 +316,7 @@ async def test_create_vector_store_file_batch(vector_io_adapter):
     }
 
     # Mock attach method to avoid actual processing
-    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock(return_value={"status": "completed"})
+    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
 
     batch = await vector_io_adapter.openai_create_vector_store_file_batch(
         vector_store_id=store_id,
@@ -393,8 +398,6 @@ async def test_list_files_in_vector_store_file_batch(vector_io_adapter):
     file_ids = ["file_1", "file_2"]
 
     # Setup vector store with files
-    from llama_stack.apis.vector_io import VectorStoreChunkingStrategyAuto, VectorStoreFileObject
-
     files = {}
     for i, file_id in enumerate(file_ids):
         files[file_id] = VectorStoreFileObject(
@@ -415,10 +418,9 @@ async def test_list_files_in_vector_store_file_batch(vector_io_adapter):
     }
 
     # Mock file loading
-    async def mock_load_file(vs_id, f_id):
-        return files[f_id].model_dump()
-
-    vector_io_adapter._load_openai_vector_store_file = mock_load_file
+    vector_io_adapter._load_openai_vector_store_file = AsyncMock(
+        side_effect=lambda vs_id, f_id: files[f_id].model_dump()
+    )
     vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
 
     # Create batch
@@ -482,8 +484,6 @@ async def test_file_batch_pagination(vector_io_adapter):
     file_ids = ["file_1", "file_2", "file_3", "file_4", "file_5"]
 
     # Setup vector store with multiple files
-    from llama_stack.apis.vector_io import VectorStoreChunkingStrategyAuto, VectorStoreFileObject
-
     files = {}
     for i, file_id in enumerate(file_ids):
         files[file_id] = VectorStoreFileObject(
@@ -504,10 +504,9 @@ async def test_file_batch_pagination(vector_io_adapter):
     }
 
     # Mock file loading
-    async def mock_load_file(vs_id, f_id):
-        return files[f_id].model_dump()
-
-    vector_io_adapter._load_openai_vector_store_file = mock_load_file
+    vector_io_adapter._load_openai_vector_store_file = AsyncMock(
+        side_effect=lambda vs_id, f_id: files[f_id].model_dump()
+    )
     vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
 
     # Create batch
@@ -542,7 +541,13 @@ async def test_file_batch_pagination(vector_io_adapter):
 
     assert len(first_page.data) == 2
     assert len(second_page.data) == 2
-    assert first_page.data[0].id != second_page.data[0].id
+    # Ensure no overlap between pages
+    first_page_ids = {file_obj.id for file_obj in first_page.data}
+    second_page_ids = {file_obj.id for file_obj in second_page.data}
+    assert first_page_ids.isdisjoint(second_page_ids)
+    # Verify we got all expected files across both pages (in desc order: file_5, file_4, file_3, file_2, file_1)
+    all_returned_ids = first_page_ids | second_page_ids
+    assert all_returned_ids == {"file_2", "file_3", "file_4", "file_5"}
 
 
 async def test_file_batch_status_filtering(vector_io_adapter):
@@ -551,8 +556,6 @@ async def test_file_batch_status_filtering(vector_io_adapter):
     file_ids = ["file_1", "file_2", "file_3"]
 
     # Setup vector store with files having different statuses
-    from llama_stack.apis.vector_io import VectorStoreChunkingStrategyAuto, VectorStoreFileObject
-
     files = {}
     statuses = ["completed", "in_progress", "completed"]
     for i, (file_id, status) in enumerate(zip(file_ids, statuses, strict=False)):
@@ -574,10 +577,9 @@ async def test_file_batch_status_filtering(vector_io_adapter):
     }
 
     # Mock file loading
-    async def mock_load_file(vs_id, f_id):
-        return files[f_id].model_dump()
-
-    vector_io_adapter._load_openai_vector_store_file = mock_load_file
+    vector_io_adapter._load_openai_vector_store_file = AsyncMock(
+        side_effect=lambda vs_id, f_id: files[f_id].model_dump()
+    )
     vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
 
     # Create batch
