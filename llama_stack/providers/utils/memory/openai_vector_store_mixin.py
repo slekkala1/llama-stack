@@ -55,7 +55,9 @@ VERSION = "v3"
 VECTOR_DBS_PREFIX = f"vector_dbs:{VERSION}::"
 OPENAI_VECTOR_STORES_PREFIX = f"openai_vector_stores:{VERSION}::"
 OPENAI_VECTOR_STORES_FILES_PREFIX = f"openai_vector_stores_files:{VERSION}::"
-OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX = f"openai_vector_stores_files_contents:{VERSION}::"
+OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX = (
+    f"openai_vector_stores_files_contents:{VERSION}::"
+)
 
 
 class OpenAIVectorStoreMixin(ABC):
@@ -67,11 +69,14 @@ class OpenAIVectorStoreMixin(ABC):
 
     # These should be provided by the implementing class
     openai_vector_stores: dict[str, dict[str, Any]]
+    openai_file_batches: dict[str, dict[str, Any]]
     files_api: Files | None
     # KV store for persisting OpenAI vector store metadata
     kvstore: KVStore | None
 
-    async def _save_openai_vector_store(self, store_id: str, store_info: dict[str, Any]) -> None:
+    async def _save_openai_vector_store(
+        self, store_id: str, store_info: dict[str, Any]
+    ) -> None:
         """Save vector store metadata to persistent storage."""
         assert self.kvstore
         key = f"{OPENAI_VECTOR_STORES_PREFIX}{store_id}"
@@ -92,7 +97,9 @@ class OpenAIVectorStoreMixin(ABC):
             stores[info["id"]] = info
         return stores
 
-    async def _update_openai_vector_store(self, store_id: str, store_info: dict[str, Any]) -> None:
+    async def _update_openai_vector_store(
+        self, store_id: str, store_info: dict[str, Any]
+    ) -> None:
         """Update vector store metadata in persistent storage."""
         assert self.kvstore
         key = f"{OPENAI_VECTOR_STORES_PREFIX}{store_id}"
@@ -119,18 +126,26 @@ class OpenAIVectorStoreMixin(ABC):
         assert self.kvstore
         meta_key = f"{OPENAI_VECTOR_STORES_FILES_PREFIX}{store_id}:{file_id}"
         await self.kvstore.set(key=meta_key, value=json.dumps(file_info))
-        contents_prefix = f"{OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX}{store_id}:{file_id}:"
+        contents_prefix = (
+            f"{OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX}{store_id}:{file_id}:"
+        )
         for idx, chunk in enumerate(file_contents):
-            await self.kvstore.set(key=f"{contents_prefix}{idx}", value=json.dumps(chunk))
+            await self.kvstore.set(
+                key=f"{contents_prefix}{idx}", value=json.dumps(chunk)
+            )
 
-    async def _load_openai_vector_store_file(self, store_id: str, file_id: str) -> dict[str, Any]:
+    async def _load_openai_vector_store_file(
+        self, store_id: str, file_id: str
+    ) -> dict[str, Any]:
         """Load vector store file metadata from persistent storage."""
         assert self.kvstore
         key = f"{OPENAI_VECTOR_STORES_FILES_PREFIX}{store_id}:{file_id}"
         stored_data = await self.kvstore.get(key)
         return json.loads(stored_data) if stored_data else {}
 
-    async def _load_openai_vector_store_file_contents(self, store_id: str, file_id: str) -> list[dict[str, Any]]:
+    async def _load_openai_vector_store_file_contents(
+        self, store_id: str, file_id: str
+    ) -> list[dict[str, Any]]:
         """Load vector store file contents from persistent storage."""
         assert self.kvstore
         prefix = f"{OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX}{store_id}:{file_id}:"
@@ -138,20 +153,26 @@ class OpenAIVectorStoreMixin(ABC):
         raw_items = await self.kvstore.values_in_range(prefix, end_key)
         return [json.loads(item) for item in raw_items]
 
-    async def _update_openai_vector_store_file(self, store_id: str, file_id: str, file_info: dict[str, Any]) -> None:
+    async def _update_openai_vector_store_file(
+        self, store_id: str, file_id: str, file_info: dict[str, Any]
+    ) -> None:
         """Update vector store file metadata in persistent storage."""
         assert self.kvstore
         key = f"{OPENAI_VECTOR_STORES_FILES_PREFIX}{store_id}:{file_id}"
         await self.kvstore.set(key=key, value=json.dumps(file_info))
 
-    async def _delete_openai_vector_store_file_from_storage(self, store_id: str, file_id: str) -> None:
+    async def _delete_openai_vector_store_file_from_storage(
+        self, store_id: str, file_id: str
+    ) -> None:
         """Delete vector store file metadata from persistent storage."""
         assert self.kvstore
 
         meta_key = f"{OPENAI_VECTOR_STORES_FILES_PREFIX}{store_id}:{file_id}"
         await self.kvstore.delete(meta_key)
 
-        contents_prefix = f"{OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX}{store_id}:{file_id}:"
+        contents_prefix = (
+            f"{OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX}{store_id}:{file_id}:"
+        )
         end_key = f"{contents_prefix}\xff"
         # load all stored chunk values (values_in_range is implemented by all backends)
         raw_items = await self.kvstore.values_in_range(contents_prefix, end_key)
@@ -164,7 +185,9 @@ class OpenAIVectorStoreMixin(ABC):
         self.openai_vector_stores = await self._load_openai_vector_stores()
 
     @abstractmethod
-    async def delete_chunks(self, store_id: str, chunks_for_deletion: list[ChunkForDeletion]) -> None:
+    async def delete_chunks(
+        self, store_id: str, chunks_for_deletion: list[ChunkForDeletion]
+    ) -> None:
         """Delete chunks from a vector store."""
         pass
 
@@ -275,7 +298,10 @@ class OpenAIVectorStoreMixin(ABC):
 
         # Now that our vector store is created, attach any files that were provided
         file_ids = file_ids or []
-        tasks = [self.openai_attach_file_to_vector_store(vector_db_id, file_id) for file_id in file_ids]
+        tasks = [
+            self.openai_attach_file_to_vector_store(vector_db_id, file_id)
+            for file_id in file_ids
+        ]
         await asyncio.gather(*tasks)
 
         # Get the updated store info and return it
@@ -302,7 +328,9 @@ class OpenAIVectorStoreMixin(ABC):
 
         # Apply cursor-based pagination
         if after:
-            after_index = next((i for i, store in enumerate(all_stores) if store["id"] == after), -1)
+            after_index = next(
+                (i for i, store in enumerate(all_stores) if store["id"] == after), -1
+            )
             if after_index >= 0:
                 all_stores = all_stores[after_index + 1 :]
 
@@ -391,7 +419,9 @@ class OpenAIVectorStoreMixin(ABC):
         try:
             await self.unregister_vector_db(vector_store_id)
         except Exception as e:
-            logger.warning(f"Failed to delete underlying vector DB {vector_store_id}: {e}")
+            logger.warning(
+                f"Failed to delete underlying vector DB {vector_store_id}: {e}"
+            )
 
         return VectorStoreDeleteResponse(
             id=vector_store_id,
@@ -416,7 +446,9 @@ class OpenAIVectorStoreMixin(ABC):
         # Validate search_mode
         valid_modes = {"keyword", "vector", "hybrid"}
         if search_mode not in valid_modes:
-            raise ValueError(f"search_mode must be one of {valid_modes}, got {search_mode}")
+            raise ValueError(
+                f"search_mode must be one of {valid_modes}, got {search_mode}"
+            )
 
         if vector_store_id not in self.openai_vector_stores:
             raise VectorStoreNotFoundError(vector_store_id)
@@ -484,7 +516,9 @@ class OpenAIVectorStoreMixin(ABC):
                 next_page=None,
             )
 
-    def _matches_filters(self, metadata: dict[str, Any], filters: dict[str, Any]) -> bool:
+    def _matches_filters(
+        self, metadata: dict[str, Any], filters: dict[str, Any]
+    ) -> bool:
         """Check if metadata matches the provided filters."""
         if not filters:
             return True
@@ -604,7 +638,9 @@ class OpenAIVectorStoreMixin(ABC):
         try:
             file_response = await self.files_api.openai_retrieve_file(file_id)
             mime_type, _ = mimetypes.guess_type(file_response.filename)
-            content_response = await self.files_api.openai_retrieve_file_content(file_id)
+            content_response = await self.files_api.openai_retrieve_file_content(
+                file_id
+            )
 
             content = content_from_data_and_mime_type(content_response.body, mime_type)
 
@@ -643,7 +679,9 @@ class OpenAIVectorStoreMixin(ABC):
         # Save vector store file to persistent storage (provider-specific)
         dict_chunks = [c.model_dump() for c in chunks]
         # This should be updated to include chunk_id
-        await self._save_openai_vector_store_file(vector_store_id, file_id, file_info, dict_chunks)
+        await self._save_openai_vector_store_file(
+            vector_store_id, file_id, file_info, dict_chunks
+        )
 
         # Update file_ids and file_counts in vector store metadata
         store_info = self.openai_vector_stores[vector_store_id].copy()
@@ -679,7 +717,9 @@ class OpenAIVectorStoreMixin(ABC):
 
         file_objects: list[VectorStoreFileObject] = []
         for file_id in store_info["file_ids"]:
-            file_info = await self._load_openai_vector_store_file(vector_store_id, file_id)
+            file_info = await self._load_openai_vector_store_file(
+                vector_store_id, file_id
+            )
             file_object = VectorStoreFileObject(**file_info)
             if filter and file_object.status != filter:
                 continue
@@ -691,7 +731,9 @@ class OpenAIVectorStoreMixin(ABC):
 
         # Apply cursor-based pagination
         if after:
-            after_index = next((i for i, file in enumerate(file_objects) if file.id == after), -1)
+            after_index = next(
+                (i for i, file in enumerate(file_objects) if file.id == after), -1
+            )
             if after_index >= 0:
                 file_objects = file_objects[after_index + 1 :]
 
@@ -728,7 +770,9 @@ class OpenAIVectorStoreMixin(ABC):
 
         store_info = self.openai_vector_stores[vector_store_id]
         if file_id not in store_info["file_ids"]:
-            raise ValueError(f"File {file_id} not found in vector store {vector_store_id}")
+            raise ValueError(
+                f"File {file_id} not found in vector store {vector_store_id}"
+            )
 
         file_info = await self._load_openai_vector_store_file(vector_store_id, file_id)
         return VectorStoreFileObject(**file_info)
@@ -743,7 +787,9 @@ class OpenAIVectorStoreMixin(ABC):
             raise VectorStoreNotFoundError(vector_store_id)
 
         file_info = await self._load_openai_vector_store_file(vector_store_id, file_id)
-        dict_chunks = await self._load_openai_vector_store_file_contents(vector_store_id, file_id)
+        dict_chunks = await self._load_openai_vector_store_file_contents(
+            vector_store_id, file_id
+        )
         chunks = [Chunk.model_validate(c) for c in dict_chunks]
         content = []
         for chunk in chunks:
@@ -767,7 +813,9 @@ class OpenAIVectorStoreMixin(ABC):
 
         store_info = self.openai_vector_stores[vector_store_id]
         if file_id not in store_info["file_ids"]:
-            raise ValueError(f"File {file_id} not found in vector store {vector_store_id}")
+            raise ValueError(
+                f"File {file_id} not found in vector store {vector_store_id}"
+            )
 
         file_info = await self._load_openai_vector_store_file(vector_store_id, file_id)
         file_info["attributes"] = attributes
@@ -783,7 +831,9 @@ class OpenAIVectorStoreMixin(ABC):
         if vector_store_id not in self.openai_vector_stores:
             raise VectorStoreNotFoundError(vector_store_id)
 
-        dict_chunks = await self._load_openai_vector_store_file_contents(vector_store_id, file_id)
+        dict_chunks = await self._load_openai_vector_store_file_contents(
+            vector_store_id, file_id
+        )
         chunks = [Chunk.model_validate(c) for c in dict_chunks]
 
         # Create ChunkForDeletion objects with both chunk_id and document_id
@@ -794,9 +844,15 @@ class OpenAIVectorStoreMixin(ABC):
                     c.chunk_metadata.document_id if c.chunk_metadata else None
                 )
                 if document_id:
-                    chunks_for_deletion.append(ChunkForDeletion(chunk_id=str(c.chunk_id), document_id=document_id))
+                    chunks_for_deletion.append(
+                        ChunkForDeletion(
+                            chunk_id=str(c.chunk_id), document_id=document_id
+                        )
+                    )
                 else:
-                    logger.warning(f"Chunk {c.chunk_id} has no document_id, skipping deletion")
+                    logger.warning(
+                        f"Chunk {c.chunk_id} has no document_id, skipping deletion"
+                    )
 
         if chunks_for_deletion:
             await self.delete_chunks(vector_store_id, chunks_for_deletion)
@@ -804,7 +860,9 @@ class OpenAIVectorStoreMixin(ABC):
         store_info = self.openai_vector_stores[vector_store_id].copy()
 
         file = await self.openai_retrieve_vector_store_file(vector_store_id, file_id)
-        await self._delete_openai_vector_store_file_from_storage(vector_store_id, file_id)
+        await self._delete_openai_vector_store_file_from_storage(
+            vector_store_id, file_id
+        )
 
         # Update in-memory cache
         store_info["file_ids"].remove(file_id)
@@ -828,7 +886,156 @@ class OpenAIVectorStoreMixin(ABC):
         chunking_strategy: VectorStoreChunkingStrategy | None = None,
     ) -> VectorStoreFileBatchObject:
         """Create a vector store file batch."""
-        raise NotImplementedError("openai_create_vector_store_file_batch is not implemented yet")
+        if vector_store_id not in self.openai_vector_stores:
+            raise VectorStoreNotFoundError(vector_store_id)
+
+        chunking_strategy = chunking_strategy or VectorStoreChunkingStrategyAuto()
+
+        created_at = int(time.time())
+        batch_id = f"batch_{uuid.uuid4()}"
+
+        # Initialize batch file counts - all files start as in_progress
+        file_counts = VectorStoreFileCounts(
+            completed=0,
+            cancelled=0,
+            failed=0,
+            in_progress=len(file_ids),
+            total=len(file_ids),
+        )
+
+        # Create batch object immediately with in_progress status
+        batch_object = VectorStoreFileBatchObject(
+            id=batch_id,
+            created_at=created_at,
+            vector_store_id=vector_store_id,
+            status="in_progress",
+            file_counts=file_counts,
+        )
+
+        # Store batch object and file_ids in memory
+        self.openai_file_batches[batch_id] = {
+            "batch_object": batch_object,
+            "file_ids": file_ids,
+        }
+
+        # Start background processing of files
+        asyncio.create_task(
+            self._process_file_batch_async(
+                batch_id, file_ids, attributes, chunking_strategy
+            )
+        )
+
+        return batch_object
+
+    async def _process_file_batch_async(
+        self,
+        batch_id: str,
+        file_ids: list[str],
+        attributes: dict[str, Any] | None,
+        chunking_strategy: VectorStoreChunkingStrategy | None,
+    ) -> None:
+        """Process files in a batch asynchronously in the background."""
+        batch_info = self.openai_file_batches[batch_id]
+        batch_object = batch_info["batch_object"]
+        vector_store_id = batch_object.vector_store_id
+
+        for file_id in file_ids:
+            try:
+                # Process each file
+                await self.openai_attach_file_to_vector_store(
+                    vector_store_id=vector_store_id,
+                    file_id=file_id,
+                    attributes=attributes,
+                    chunking_strategy=chunking_strategy,
+                )
+
+                # Update counts atomically
+                batch_object.file_counts.completed += 1
+                batch_object.file_counts.in_progress -= 1
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to process file {file_id} in batch {batch_id}: {e}"
+                )
+                batch_object.file_counts.failed += 1
+                batch_object.file_counts.in_progress -= 1
+
+        # Update final status when all files are processed
+        if batch_object.file_counts.failed == 0:
+            batch_object.status = "completed"
+        elif batch_object.file_counts.completed == 0:
+            batch_object.status = "failed"
+        else:
+            batch_object.status = "completed"  # Partial success counts as completed
+
+        logger.info(
+            f"File batch {batch_id} processing completed with status: {batch_object.status}"
+        )
+
+    def _get_and_validate_batch(
+        self, batch_id: str, vector_store_id: str
+    ) -> tuple[dict[str, Any], VectorStoreFileBatchObject]:
+        """Get and validate batch exists and belongs to vector store."""
+        if vector_store_id not in self.openai_vector_stores:
+            raise VectorStoreNotFoundError(vector_store_id)
+
+        if batch_id not in self.openai_file_batches:
+            raise ValueError(f"File batch {batch_id} not found")
+
+        batch_info = self.openai_file_batches[batch_id]
+        batch_object = batch_info["batch_object"]
+
+        if batch_object.vector_store_id != vector_store_id:
+            raise ValueError(
+                f"File batch {batch_id} does not belong to vector store {vector_store_id}"
+            )
+
+        return batch_info, batch_object
+
+    def _paginate_objects(
+        self,
+        objects: list[Any],
+        limit: int | None = 20,
+        after: str | None = None,
+        before: str | None = None,
+    ) -> tuple[list[Any], bool, str | None, str | None]:
+        """Apply pagination to a list of objects with id fields."""
+        limit = min(limit or 20, 100)  # Cap at 100 as per OpenAI
+
+        # Find start index
+        start_idx = 0
+        if after:
+            for i, obj in enumerate(objects):
+                if obj.id == after:
+                    start_idx = i + 1
+                    break
+
+        # Find end index
+        end_idx = start_idx + limit
+        if before:
+            for i, obj in enumerate(objects[start_idx:], start_idx):
+                if obj.id == before:
+                    end_idx = i
+                    break
+
+        # Apply pagination
+        paginated_objects = objects[start_idx:end_idx]
+
+        # Determine pagination info
+        has_more = end_idx < len(objects)
+        first_id = paginated_objects[0].id if paginated_objects else None
+        last_id = paginated_objects[-1].id if paginated_objects else None
+
+        return paginated_objects, has_more, first_id, last_id
+
+    async def openai_retrieve_vector_store_file_batch(
+        self,
+        batch_id: str,
+        vector_store_id: str,
+    ) -> VectorStoreFileBatchObject:
+        """Retrieve a vector store file batch."""
+        _, batch_object = self._get_and_validate_batch(batch_id, vector_store_id)
+        return batch_object
 
     async def openai_list_files_in_vector_store_file_batch(
         self,
@@ -841,15 +1048,45 @@ class OpenAIVectorStoreMixin(ABC):
         order: str | None = "desc",
     ) -> VectorStoreFilesListInBatchResponse:
         """Returns a list of vector store files in a batch."""
-        raise NotImplementedError("openai_list_files_in_vector_store_file_batch is not implemented yet")
+        batch_info, _ = self._get_and_validate_batch(batch_id, vector_store_id)
+        batch_file_ids = batch_info["file_ids"]
 
-    async def openai_retrieve_vector_store_file_batch(
-        self,
-        batch_id: str,
-        vector_store_id: str,
-    ) -> VectorStoreFileBatchObject:
-        """Retrieve a vector store file batch."""
-        raise NotImplementedError("openai_retrieve_vector_store_file_batch is not implemented yet")
+        # Load file objects for files in this batch
+        batch_file_objects = []
+
+        for file_id in batch_file_ids:
+            try:
+                file_info = await self._load_openai_vector_store_file(
+                    vector_store_id, file_id
+                )
+                file_object = VectorStoreFileObject(**file_info)
+
+                # Apply status filter if provided
+                if filter and file_object.status != filter:
+                    continue
+
+                batch_file_objects.append(file_object)
+            except Exception as e:
+                logger.warning(
+                    f"Could not load file {file_id} from batch {batch_id}: {e}"
+                )
+                continue
+
+        # Sort by created_at
+        reverse_order = order == "desc"
+        batch_file_objects.sort(key=lambda x: x.created_at, reverse=reverse_order)
+
+        # Apply pagination using helper
+        paginated_files, has_more, first_id, last_id = self._paginate_objects(
+            batch_file_objects, limit, after, before
+        )
+
+        return VectorStoreFilesListInBatchResponse(
+            data=paginated_files,
+            first_id=first_id,
+            last_id=last_id,
+            has_more=has_more,
+        )
 
     async def openai_cancel_vector_store_file_batch(
         self,
@@ -857,4 +1094,28 @@ class OpenAIVectorStoreMixin(ABC):
         vector_store_id: str,
     ) -> VectorStoreFileBatchObject:
         """Cancel a vector store file batch."""
-        raise NotImplementedError("openai_cancel_vector_store_file_batch is not implemented yet")
+        batch_info, batch_object = self._get_and_validate_batch(
+            batch_id, vector_store_id
+        )
+
+        # Only allow cancellation if batch is in progress
+        if batch_object.status not in ["in_progress"]:
+            raise ValueError(
+                f"Cannot cancel batch {batch_id} with status {batch_object.status}"
+            )
+
+        # Create updated batch object with cancelled status
+        updated_batch = VectorStoreFileBatchObject(
+            id=batch_object.id,
+            object=batch_object.object,
+            created_at=batch_object.created_at,
+            vector_store_id=batch_object.vector_store_id,
+            status="cancelled",
+            file_counts=batch_object.file_counts,
+        )
+
+        # Update the stored batch info
+        batch_info["batch_object"] = updated_batch
+        self.openai_file_batches[batch_id] = batch_info
+
+        return updated_batch
