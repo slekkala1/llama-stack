@@ -6884,10 +6884,6 @@ components:
           type: string
           description: >-
             (Optional) Truncation strategy applied to the response
-        user:
-          type: string
-          description: >-
-            (Optional) User identifier associated with the request
       additionalProperties: false
       required:
         - created_at
@@ -10082,10 +10078,6 @@ components:
           type: string
           description: >-
             (Optional) Truncation strategy applied to the response
-        user:
-          type: string
-          description: >-
-            (Optional) User identifier associated with the request
         input:
           type: array
           items:
