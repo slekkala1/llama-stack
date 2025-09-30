@@ -1117,15 +1117,22 @@ def test_openai_vector_store_file_batch_error_handling(compat_client_with_empty_
     assert batch.file_counts.total == len(file_ids)
     # Invalid files should be marked as failed
     assert batch.file_counts.failed >= 0  # Implementation may vary
+
+    # Determine expected errors based on client type
+    if isinstance(compat_client, LlamaStackAsLibraryClient):
+        errors = ValueError
+    else:
+        errors = (BadRequestError, OpenAIBadRequestError)
+
     # Test retrieving non-existent batch
-    with pytest.raises(ValueError):  # Should raise an error for non-existent batch
+    with pytest.raises(errors):  # Should raise an error for non-existent batch
         compat_client.vector_stores.file_batches.retrieve(
             vector_store_id=vector_store.id,
             batch_id="non_existent_batch_id",
         )
 
     # Test operations on non-existent vector store
-    with pytest.raises(ValueError):  # Should raise an error for non-existent vector store
+    with pytest.raises(errors):  # Should raise an error for non-existent vector store
         compat_client.vector_stores.file_batches.create(
             vector_store_id="non_existent_vector_store",
             file_ids=["any_file_id"],
