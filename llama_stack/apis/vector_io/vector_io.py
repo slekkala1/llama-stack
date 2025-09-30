@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from llama_stack.apis.inference import InterleavedContent
 from llama_stack.apis.vector_dbs import VectorDB
-from llama_stack.apis.version import LLAMA_STACK_API_V1
+from llama_stack.apis.version import LLAMA_STACK_API_V1, LLAMA_STACK_API_V1ALPHA
 from llama_stack.providers.utils.telemetry.trace_protocol import trace_protocol
 from llama_stack.providers.utils.vector_io.vector_utils import generate_chunk_id
 from llama_stack.schema_utils import json_schema_type, webmethod
@@ -768,9 +768,13 @@ class VectorIO(Protocol):
         ...
 
     @webmethod(
+<<<<<<< HEAD
         route="/vector_stores/{vector_store_id}/file_batches",
         method="POST",
         level=LLAMA_STACK_API_V1,
+=======
+        route="/openai/v1/vector_stores/{vector_store_id}/file_batches", method="POST", level=LLAMA_STACK_API_V1ALPHA
+>>>>>>> 2acf255f (add int tests)
     )
     async def openai_create_vector_store_file_batch(
         self,
@@ -790,9 +794,15 @@ class VectorIO(Protocol):
         ...
 
     @webmethod(
+<<<<<<< HEAD
         route="/vector_stores/{vector_store_id}/file_batches/{batch_id}",
         method="GET",
         level=LLAMA_STACK_API_V1,
+=======
+        route="/openai/v1/vector_stores/{vector_store_id}/file_batches/{batch_id}",
+        method="GET",
+        level=LLAMA_STACK_API_V1ALPHA,
+>>>>>>> 2acf255f (add int tests)
     )
     async def openai_retrieve_vector_store_file_batch(
         self,
@@ -808,9 +818,15 @@ class VectorIO(Protocol):
         ...
 
     @webmethod(
+<<<<<<< HEAD
         route="/vector_stores/{vector_store_id}/file_batches/{batch_id}/files",
         method="GET",
         level=LLAMA_STACK_API_V1,
+=======
+        route="/openai/v1/vector_stores/{vector_store_id}/file_batches/{batch_id}/files",
+        method="GET",
+        level=LLAMA_STACK_API_V1ALPHA,
+>>>>>>> 2acf255f (add int tests)
     )
     async def openai_list_files_in_vector_store_file_batch(
         self,
@@ -836,9 +852,15 @@ class VectorIO(Protocol):
         ...
 
     @webmethod(
+<<<<<<< HEAD
         route="/vector_stores/{vector_store_id}/file_batches/{batch_id}/cancel",
         method="POST",
         level=LLAMA_STACK_API_V1,
+=======
+        route="/openai/v1/vector_stores/{vector_store_id}/file_batches/{batch_id}/cancel",
+        method="POST",
+        level=LLAMA_STACK_API_V1ALPHA,
+>>>>>>> 2acf255f (add int tests)
     )
     async def openai_cancel_vector_store_file_batch(
         self,
