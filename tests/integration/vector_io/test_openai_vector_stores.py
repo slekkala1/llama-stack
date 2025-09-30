@@ -918,6 +918,7 @@ def test_openai_vector_store_search_modes(llama_stack_client, client_with_models
     assert search_response is not None
 
 
+@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_create_and_retrieve(compat_client_with_empty_stores, client_with_models):
     """Test creating and retrieving a vector store file batch."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -969,6 +970,7 @@ def test_openai_vector_store_file_batch_create_and_retrieve(compat_client_with_e
     assert retrieved_batch.file_counts["total"] == len(file_ids)
 
 
+@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stores, client_with_models):
     """Test listing files in a vector store file batch."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -1039,6 +1041,7 @@ def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stor
     assert first_page_ids.isdisjoint(second_page_ids)
 
 
+@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_cancel(compat_client_with_empty_stores, client_with_models):
     """Test cancelling a vector store file batch."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -1082,6 +1085,7 @@ def test_openai_vector_store_file_batch_cancel(compat_client_with_empty_stores, 
             raise
 
 
+@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_error_handling(compat_client_with_empty_stores, client_with_models):
     """Test error handling for file batch operations."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
