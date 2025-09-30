@@ -109,7 +109,11 @@ class OpenAIVectorStoreMixin(ABC):
         self.openai_vector_stores.pop(store_id, None)
 
     async def _save_openai_vector_store_file(
-        self, store_id: str, file_id: str, file_info: dict[str, Any], file_contents: list[dict[str, Any]]
+        self,
+        store_id: str,
+        file_id: str,
+        file_info: dict[str, Any],
+        file_contents: list[dict[str, Any]],
     ) -> None:
         """Save vector store file metadata to persistent storage."""
         assert self.kvstore
@@ -303,7 +307,10 @@ class OpenAIVectorStoreMixin(ABC):
                 all_stores = all_stores[after_index + 1 :]
 
         if before:
-            before_index = next((i for i, store in enumerate(all_stores) if store["id"] == before), len(all_stores))
+            before_index = next(
+                (i for i, store in enumerate(all_stores) if store["id"] == before),
+                len(all_stores),
+            )
             all_stores = all_stores[:before_index]
 
         # Apply limit
@@ -399,7 +406,9 @@ class OpenAIVectorStoreMixin(ABC):
         max_num_results: int | None = 10,
         ranking_options: SearchRankingOptions | None = None,
         rewrite_query: bool | None = False,
-        search_mode: str | None = "vector",  # Using str instead of Literal due to OpenAPI schema generator limitations
+        search_mode: (
+            str | None
+        ) = "vector",  # Using str instead of Literal due to OpenAPI schema generator limitations
     ) -> VectorStoreSearchResponsePage:
         """Search for chunks in a vector store."""
         max_num_results = max_num_results or 10
@@ -687,7 +696,10 @@ class OpenAIVectorStoreMixin(ABC):
                 file_objects = file_objects[after_index + 1 :]
 
         if before:
-            before_index = next((i for i, file in enumerate(file_objects) if file.id == before), len(file_objects))
+            before_index = next(
+                (i for i, file in enumerate(file_objects) if file.id == before),
+                len(file_objects),
+            )
             file_objects = file_objects[:before_index]
 
         # Apply limit
