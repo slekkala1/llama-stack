@@ -24,11 +24,13 @@ from llama_stack.apis.vector_io import (
     VectorStoreChunkingStrategyStatic,
     VectorStoreContent,
     VectorStoreDeleteResponse,
+    VectorStoreFileBatchObject,
     VectorStoreFileContentsResponse,
     VectorStoreFileCounts,
     VectorStoreFileDeleteResponse,
     VectorStoreFileLastError,
     VectorStoreFileObject,
+    VectorStoreFilesListInBatchResponse,
     VectorStoreFileStatus,
     VectorStoreListFilesResponse,
     VectorStoreListResponse,
@@ -805,3 +807,42 @@ class OpenAIVectorStoreMixin(ABC):
             id=file_id,
             deleted=True,
         )
+
+    async def openai_create_vector_store_file_batch(
+        self,
+        vector_store_id: str,
+        file_ids: list[str],
+        attributes: dict[str, Any] | None = None,
+        chunking_strategy: VectorStoreChunkingStrategy | None = None,
+    ) -> VectorStoreFileBatchObject:
+        """Create a vector store file batch."""
+        raise NotImplementedError("openai_create_vector_store_file_batch is not implemented yet")
+
+    async def openai_list_files_in_vector_store_file_batch(
+        self,
+        batch_id: str,
+        vector_store_id: str,
+        after: str | None = None,
+        before: str | None = None,
+        filter: str | None = None,
+        limit: int | None = 20,
+        order: str | None = "desc",
+    ) -> VectorStoreFilesListInBatchResponse:
+        """Returns a list of vector store files in a batch."""
+        raise NotImplementedError("openai_list_files_in_vector_store_file_batch is not implemented yet")
+
+    async def openai_retrieve_vector_store_file_batch(
+        self,
+        batch_id: str,
+        vector_store_id: str,
+    ) -> VectorStoreFileBatchObject:
+        """Retrieve a vector store file batch."""
+        raise NotImplementedError("openai_retrieve_vector_store_file_batch is not implemented yet")
+
+    async def openai_cancel_vector_store_file_batch(
+        self,
+        batch_id: str,
+        vector_store_id: str,
+    ) -> VectorStoreFileBatchObject:
+        """Cancel a vector store file batch."""
+        raise NotImplementedError("openai_cancel_vector_store_file_batch is not implemented yet")
