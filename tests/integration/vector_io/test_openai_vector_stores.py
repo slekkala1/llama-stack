@@ -918,7 +918,6 @@ def test_openai_vector_store_search_modes(llama_stack_client, client_with_models
     assert search_response is not None
 
 
-@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_create_and_retrieve(compat_client_with_empty_stores, client_with_models):
     """Test creating and retrieving a vector store file batch."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -946,31 +945,32 @@ def test_openai_vector_store_file_batch_create_and_retrieve(compat_client_with_e
     assert batch.object == "vector_store.file_batch"
     assert batch.vector_store_id == vector_store.id
     assert batch.status in ["in_progress", "completed"]
-    assert set(batch.file_counts.keys()) >= {
-        "completed",
-        "failed",
-        "in_progress",
-        "cancelled",
-        "total",
-    }
-    assert batch.file_counts["total"] == len(file_ids)
+    assert batch.file_counts.total == len(file_ids)
     assert hasattr(batch, "id")
     assert hasattr(batch, "created_at")
 
-    # Retrieve the batch
-    retrieved_batch = compat_client.vector_stores.file_batches.retrieve(
-        vector_store_id=vector_store.id,
-        batch_id=batch.id,
-    )
+    # Wait for batch processing to complete
+    max_retries = 30  # 30 seconds max wait
+    retries = 0
+    retrieved_batch = None
+    while retries < max_retries:
+        retrieved_batch = compat_client.vector_stores.file_batches.retrieve(
+            vector_store_id=vector_store.id,
+            batch_id=batch.id,
+        )
+        if retrieved_batch.status in ["completed", "failed"]:
+            break
+        time.sleep(1)
+        retries += 1
 
     assert retrieved_batch is not None
     assert retrieved_batch.id == batch.id
     assert retrieved_batch.vector_store_id == vector_store.id
     assert retrieved_batch.object == "vector_store.file_batch"
-    assert retrieved_batch.file_counts["total"] == len(file_ids)
+    assert retrieved_batch.file_counts.total == len(file_ids)
+    assert retrieved_batch.status == "completed"  # Should be completed after processing
 
 
-@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stores, client_with_models):
     """Test listing files in a vector store file batch."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -993,6 +993,19 @@ def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stor
         vector_store_id=vector_store.id,
         file_ids=file_ids,
     )
+
+    # Wait for batch processing to complete
+    max_retries = 30  # 30 seconds max wait
+    retries = 0
+    while retries < max_retries:
+        retrieved_batch = compat_client.vector_stores.file_batches.retrieve(
+            vector_store_id=vector_store.id,
+            batch_id=batch.id,
+        )
+        if retrieved_batch.status in ["completed", "failed"]:
+            break
+        time.sleep(1)
+        retries += 1
 
     # List all files in the batch
     files_response = compat_client.vector_stores.file_batches.list_files(
@@ -1041,7 +1054,6 @@ def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stor
     assert first_page_ids.isdisjoint(second_page_ids)
 
 
-@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_cancel(compat_client_with_empty_stores, client_with_models):
     """Test cancelling a vector store file batch."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -1064,7 +1076,6 @@ def test_openai_vector_store_file_batch_cancel(compat_client_with_empty_stores, 
         vector_store_id=vector_store.id,
         file_ids=file_ids,
     )
-
     # Try to cancel the batch (may fail if already completed)
     try:
         cancelled_batch = compat_client.vector_stores.file_batches.cancel(
@@ -1085,7 +1096,6 @@ def test_openai_vector_store_file_batch_cancel(compat_client_with_empty_stores, 
             raise
 
 
-@pytest.mark.skip(reason="Client SDK needs updating")
 def test_openai_vector_store_file_batch_error_handling(compat_client_with_empty_stores, client_with_models):
     """Test error handling for file batch operations."""
     skip_if_provider_doesnt_support_openai_vector_stores(client_with_models)
@@ -1104,19 +1114,18 @@ def test_openai_vector_store_file_batch_error_handling(compat_client_with_empty_
     )
 
     assert batch is not None
-    assert batch.file_counts["total"] == len(file_ids)
+    assert batch.file_counts.total == len(file_ids)
     # Invalid files should be marked as failed
-    assert batch.file_counts["failed"] >= 0  # Implementation may vary
-
+    assert batch.file_counts.failed >= 0  # Implementation may vary
     # Test retrieving non-existent batch
-    with pytest.raises(ValueError):  # Should raise an error for non-existent batch
+    with pytest.raises((BadRequestError, OpenAIBadRequestError)):  # Should raise an error for non-existent batch
         compat_client.vector_stores.file_batches.retrieve(
             vector_store_id=vector_store.id,
             batch_id="non_existent_batch_id",
         )
 
     # Test operations on non-existent vector store
-    with pytest.raises(ValueError):  # Should raise an error for non-existent vector store
+    with pytest.raises((BadRequestError, OpenAIBadRequestError)):  # Should raise an error for non-existent vector store
         compat_client.vector_stores.file_batches.create(
             vector_store_id="non_existent_vector_store",
             file_ids=["any_file_id"],

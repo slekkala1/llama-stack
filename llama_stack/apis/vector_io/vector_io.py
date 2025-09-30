@@ -11,6 +11,8 @@
 import uuid
 from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
+from pydantic import BaseModel, Field
+
 from llama_stack.apis.inference import InterleavedContent
 from llama_stack.apis.vector_dbs import VectorDB
 from llama_stack.apis.version import LLAMA_STACK_API_V1
@@ -18,8 +20,6 @@ from llama_stack.providers.utils.telemetry.trace_protocol import trace_protocol
 from llama_stack.providers.utils.vector_io.vector_utils import generate_chunk_id
 from llama_stack.schema_utils import json_schema_type, webmethod
 from llama_stack.strong_typing.schema import register_schema
-
-from pydantic import BaseModel, Field
 
 
 @json_schema_type
@@ -350,12 +350,7 @@ class VectorStoreFileLastError(BaseModel):
     message: str
 
 
-VectorStoreFileStatus = (
-    Literal["completed"]
-    | Literal["in_progress"]
-    | Literal["cancelled"]
-    | Literal["failed"]
-)
+VectorStoreFileStatus = Literal["completed"] | Literal["in_progress"] | Literal["cancelled"] | Literal["failed"]
 register_schema(VectorStoreFileStatus, name="VectorStoreFileStatus")
 
 
@@ -561,9 +556,7 @@ class VectorIO(Protocol):
         """
         ...
 
-    @webmethod(
-        route="/vector_stores/{vector_store_id}", method="GET", level=LLAMA_STACK_API_V1
-    )
+    @webmethod(route="/vector_stores/{vector_store_id}", method="GET", level=LLAMA_STACK_API_V1)
     async def openai_retrieve_vector_store(
         self,
         vector_store_id: str,

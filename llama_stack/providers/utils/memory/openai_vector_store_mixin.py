@@ -616,7 +616,6 @@ class OpenAIVectorStoreMixin(ABC):
                 chunk_overlap_tokens,
                 attributes,
             )
-
             if not chunks:
                 vector_store_file_object.status = "failed"
                 vector_store_file_object.last_error = VectorStoreFileLastError(
@@ -877,7 +876,6 @@ class OpenAIVectorStoreMixin(ABC):
         batch_info = self.openai_file_batches[batch_id]
         batch_object = batch_info["batch_object"]
         vector_store_id = batch_object.vector_store_id
-
         for file_id in file_ids:
             try:
                 # Process each file
