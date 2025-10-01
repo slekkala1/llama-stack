@@ -315,8 +315,9 @@ async def test_create_vector_store_file_batch(vector_io_adapter):
         "file_ids": [],
     }
 
-    # Mock attach method to avoid actual processing
+    # Mock attach method and batch processing to avoid actual processing
     vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+    vector_io_adapter._process_file_batch_async = AsyncMock()
 
     batch = await vector_io_adapter.openai_create_vector_store_file_batch(
         vector_store_id=store_id,
@@ -375,7 +376,9 @@ async def test_cancel_vector_store_file_batch(vector_io_adapter):
         "file_ids": [],
     }
 
+    # Mock both file attachment and batch processing to prevent automatic completion
     vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+    vector_io_adapter._process_file_batch_async = AsyncMock()
 
     # Create batch
     batch = await vector_io_adapter.openai_create_vector_store_file_batch(
@@ -633,7 +636,7 @@ async def test_cancel_completed_batch_fails(vector_io_adapter):
 
     # Manually update status to completed
     batch_info = vector_io_adapter.openai_file_batches[batch.id]
-    batch_info["batch_object"].status = "completed"
+    batch_info["status"] = "completed"
 
     # Try to cancel - should fail
     with pytest.raises(ValueError, match="Cannot cancel batch .* with status completed"):
@@ -641,3 +644,324 @@ async def test_cancel_completed_batch_fails(vector_io_adapter):
             batch_id=batch.id,
             vector_store_id=store_id,
         )
+
+
+async def test_file_batch_persistence_across_restarts(vector_io_adapter):
+    """Test that in-progress file batches are persisted and resumed after restart."""
+    store_id = "vs_1234"
+    file_ids = ["file_1", "file_2"]
+
+    # Setup vector store
+    vector_io_adapter.openai_vector_stores[store_id] = {
+        "id": store_id,
+        "name": "Test Store",
+        "files": {},
+        "file_ids": [],
+    }
+
+    # Mock attach method and batch processing to avoid actual processing
+    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+    vector_io_adapter._process_file_batch_async = AsyncMock()
+
+    # Create batch
+    batch = await vector_io_adapter.openai_create_vector_store_file_batch(
+        vector_store_id=store_id,
+        file_ids=file_ids,
+    )
+    batch_id = batch.id
+
+    # Verify batch is saved to persistent storage
+    assert batch_id in vector_io_adapter.openai_file_batches
+    saved_batch_key = f"openai_vector_stores_file_batches:v3::{batch_id}"
+    saved_batch = await vector_io_adapter.kvstore.get(saved_batch_key)
+    assert saved_batch is not None
+
+    # Verify the saved batch data contains all necessary information
+    saved_data = json.loads(saved_batch)
+    assert saved_data["id"] == batch_id
+    assert saved_data["status"] == "in_progress"
+    assert saved_data["file_ids"] == file_ids
+
+    # Simulate restart - clear in-memory cache and reload
+    vector_io_adapter.openai_file_batches.clear()
+
+    # Temporarily restore the real initialize_openai_vector_stores method
+    from llama_stack.providers.utils.memory.openai_vector_store_mixin import OpenAIVectorStoreMixin
+
+    real_method = OpenAIVectorStoreMixin.initialize_openai_vector_stores
+    await real_method(vector_io_adapter)
+
+    # Re-mock the processing method to prevent any resumed batches from processing
+    vector_io_adapter._process_file_batch_async = AsyncMock()
+
+    # Verify batch was restored
+    assert batch_id in vector_io_adapter.openai_file_batches
+    restored_batch = vector_io_adapter.openai_file_batches[batch_id]
+    assert restored_batch["status"] == "in_progress"
+    assert restored_batch["id"] == batch_id
+    assert vector_io_adapter.openai_file_batches[batch_id]["file_ids"] == file_ids
+
+
+async def test_completed_batch_cleanup_from_persistence(vector_io_adapter):
+    """Test that completed batches are removed from persistent storage."""
+    store_id = "vs_1234"
+    file_ids = ["file_1"]
+
+    # Setup vector store
+    vector_io_adapter.openai_vector_stores[store_id] = {
+        "id": store_id,
+        "name": "Test Store",
+        "files": {},
+        "file_ids": [],
+    }
+
+    # Mock successful file processing
+    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+
+    # Create batch
+    batch = await vector_io_adapter.openai_create_vector_store_file_batch(
+        vector_store_id=store_id,
+        file_ids=file_ids,
+    )
+    batch_id = batch.id
+
+    # Verify batch is initially saved to persistent storage
+    saved_batch_key = f"openai_vector_stores_file_batches:v3::{batch_id}"
+    saved_batch = await vector_io_adapter.kvstore.get(saved_batch_key)
+    assert saved_batch is not None
+
+    # Simulate batch completion by calling the processing method
+    batch_info = vector_io_adapter.openai_file_batches[batch_id]
+
+    # Mark as completed and process
+    batch_info["file_counts"]["completed"] = len(file_ids)
+    batch_info["file_counts"]["in_progress"] = 0
+    batch_info["status"] = "completed"
+
+    # Manually call the cleanup (this normally happens in _process_file_batch_async)
+    await vector_io_adapter._delete_openai_vector_store_file_batch(batch_id)
+
+    # Verify batch was removed from persistent storage
+    cleaned_batch = await vector_io_adapter.kvstore.get(saved_batch_key)
+    assert cleaned_batch is None
+
+    # Batch should be removed from memory as well (matches vector store pattern)
+    assert batch_id not in vector_io_adapter.openai_file_batches
+
+
+async def test_cancelled_batch_persists_in_storage(vector_io_adapter):
+    """Test that cancelled batches persist in storage with updated status."""
+    store_id = "vs_1234"
+    file_ids = ["file_1", "file_2"]
+
+    # Setup vector store
+    vector_io_adapter.openai_vector_stores[store_id] = {
+        "id": store_id,
+        "name": "Test Store",
+        "files": {},
+        "file_ids": [],
+    }
+
+    # Mock attach method and batch processing to avoid actual processing
+    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+    vector_io_adapter._process_file_batch_async = AsyncMock()
+
+    # Create batch
+    batch = await vector_io_adapter.openai_create_vector_store_file_batch(
+        vector_store_id=store_id,
+        file_ids=file_ids,
+    )
+    batch_id = batch.id
+
+    # Verify batch is initially saved to persistent storage
+    saved_batch_key = f"openai_vector_stores_file_batches:v3::{batch_id}"
+    saved_batch = await vector_io_adapter.kvstore.get(saved_batch_key)
+    assert saved_batch is not None
+
+    # Cancel the batch
+    cancelled_batch = await vector_io_adapter.openai_cancel_vector_store_file_batch(
+        batch_id=batch_id,
+        vector_store_id=store_id,
+    )
+
+    # Verify batch status is cancelled
+    assert cancelled_batch.status == "cancelled"
+
+    # Verify batch persists in storage with cancelled status
+    updated_batch = await vector_io_adapter.kvstore.get(saved_batch_key)
+    assert updated_batch is not None
+    batch_data = json.loads(updated_batch)
+    assert batch_data["status"] == "cancelled"
+
+    # Batch should remain in memory cache (matches vector store pattern)
+    assert batch_id in vector_io_adapter.openai_file_batches
+    assert vector_io_adapter.openai_file_batches[batch_id]["status"] == "cancelled"
+
+
+async def test_only_in_progress_batches_resumed(vector_io_adapter):
+    """Test that only in-progress batches are resumed for processing, but all batches are persisted."""
+    store_id = "vs_1234"
+
+    # Setup vector store
+    vector_io_adapter.openai_vector_stores[store_id] = {
+        "id": store_id,
+        "name": "Test Store",
+        "files": {},
+        "file_ids": [],
+    }
+
+    # Mock attach method and batch processing to prevent automatic completion
+    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+    vector_io_adapter._process_file_batch_async = AsyncMock()
+
+    # Create multiple batches
+    batch1 = await vector_io_adapter.openai_create_vector_store_file_batch(
+        vector_store_id=store_id, file_ids=["file_1"]
+    )
+    batch2 = await vector_io_adapter.openai_create_vector_store_file_batch(
+        vector_store_id=store_id, file_ids=["file_2"]
+    )
+
+    # Complete one batch (should persist with completed status)
+    batch1_info = vector_io_adapter.openai_file_batches[batch1.id]
+    batch1_info["status"] = "completed"
+    await vector_io_adapter._save_openai_vector_store_file_batch(batch1.id, batch1_info)
+
+    # Cancel the other batch (should persist with cancelled status)
+    await vector_io_adapter.openai_cancel_vector_store_file_batch(batch_id=batch2.id, vector_store_id=store_id)
+
+    # Create a third batch that stays in progress
+    batch3 = await vector_io_adapter.openai_create_vector_store_file_batch(
+        vector_store_id=store_id, file_ids=["file_3"]
+    )
+
+    # Simulate restart - first clear memory, then reload from persistence
+    vector_io_adapter.openai_file_batches.clear()
+
+    # Mock the processing method BEFORE calling initialize to capture the resume calls
+    mock_process = AsyncMock()
+    vector_io_adapter._process_file_batch_async = mock_process
+
+    # Temporarily restore the real initialize_openai_vector_stores method
+    from llama_stack.providers.utils.memory.openai_vector_store_mixin import OpenAIVectorStoreMixin
+
+    real_method = OpenAIVectorStoreMixin.initialize_openai_vector_stores
+    await real_method(vector_io_adapter)
+
+    # All batches should be restored from persistence
+    assert batch1.id in vector_io_adapter.openai_file_batches  # completed, persisted
+    assert batch2.id in vector_io_adapter.openai_file_batches  # cancelled, persisted
+    assert batch3.id in vector_io_adapter.openai_file_batches  # in-progress, restored
+
+    # Check their statuses
+    assert vector_io_adapter.openai_file_batches[batch1.id]["status"] == "completed"
+    assert vector_io_adapter.openai_file_batches[batch2.id]["status"] == "cancelled"
+    assert vector_io_adapter.openai_file_batches[batch3.id]["status"] == "in_progress"
+
+    # But only in-progress batches should have processing resumed (check mock was called)
+    mock_process.assert_called_once_with(batch3.id, vector_io_adapter.openai_file_batches[batch3.id])
+
+
+async def test_cleanup_expired_file_batches(vector_io_adapter):
+    """Test that expired file batches are cleaned up properly."""
+    store_id = "vs_1234"
+
+    # Setup vector store
+    vector_io_adapter.openai_vector_stores[store_id] = {
+        "id": store_id,
+        "name": "Test Store",
+        "files": {},
+        "file_ids": [],
+    }
+
+    # Mock processing to prevent automatic completion
+    vector_io_adapter.openai_attach_file_to_vector_store = AsyncMock()
+    vector_io_adapter._process_file_batch_async = AsyncMock()
+
+    # Create batches with different ages
+    import time
+
+    current_time = int(time.time())
+
+    # Create an old expired batch (10 days old)
+    old_batch_info = {
+        "id": "batch_old",
+        "vector_store_id": store_id,
+        "status": "completed",
+        "created_at": current_time - (10 * 24 * 60 * 60),  # 10 days ago
+        "expires_at": current_time - (3 * 24 * 60 * 60),  # Expired 3 days ago
+        "file_ids": ["file_1"],
+    }
+
+    # Create a recent valid batch
+    new_batch_info = {
+        "id": "batch_new",
+        "vector_store_id": store_id,
+        "status": "completed",
+        "created_at": current_time - (1 * 24 * 60 * 60),  # 1 day ago
+        "expires_at": current_time + (6 * 24 * 60 * 60),  # Expires in 6 days
+        "file_ids": ["file_2"],
+    }
+
+    # Store both batches in persistent storage
+    await vector_io_adapter._save_openai_vector_store_file_batch("batch_old", old_batch_info)
+    await vector_io_adapter._save_openai_vector_store_file_batch("batch_new", new_batch_info)
+
+    # Add to in-memory cache
+    vector_io_adapter.openai_file_batches["batch_old"] = old_batch_info
+    vector_io_adapter.openai_file_batches["batch_new"] = new_batch_info
+
+    # Verify both batches exist before cleanup
+    assert "batch_old" in vector_io_adapter.openai_file_batches
+    assert "batch_new" in vector_io_adapter.openai_file_batches
+
+    # Run cleanup
+    await vector_io_adapter._cleanup_expired_file_batches()
+
+    # Verify expired batch was removed from memory
+    assert "batch_old" not in vector_io_adapter.openai_file_batches
+    assert "batch_new" in vector_io_adapter.openai_file_batches
+
+    # Verify expired batch was removed from storage
+    old_batch_key = "openai_vector_stores_file_batches:v3::batch_old"
+    new_batch_key = "openai_vector_stores_file_batches:v3::batch_new"
+
+    old_stored = await vector_io_adapter.kvstore.get(old_batch_key)
+    new_stored = await vector_io_adapter.kvstore.get(new_batch_key)
+
+    assert old_stored is None  # Expired batch should be deleted
+    assert new_stored is not None  # Valid batch should remain
+
+
+async def test_expired_batch_access_error(vector_io_adapter):
+    """Test that accessing expired batches returns clear error message."""
+    store_id = "vs_1234"
+
+    # Setup vector store
+    vector_io_adapter.openai_vector_stores[store_id] = {
+        "id": store_id,
+        "name": "Test Store",
+        "files": {},
+        "file_ids": [],
+    }
+
+    # Create an expired batch
+    import time
+
+    current_time = int(time.time())
+
+    expired_batch_info = {
+        "id": "batch_expired",
+        "vector_store_id": store_id,
+        "status": "completed",
+        "created_at": current_time - (10 * 24 * 60 * 60),  # 10 days ago
+        "expires_at": current_time - (3 * 24 * 60 * 60),  # Expired 3 days ago
+        "file_ids": ["file_1"],
+    }
+
+    # Add to in-memory cache (simulating it was loaded before expiration)
+    vector_io_adapter.openai_file_batches["batch_expired"] = expired_batch_info
+
+    # Try to access expired batch
+    with pytest.raises(ValueError, match="File batch batch_expired has expired after 7 days from creation"):
+        vector_io_adapter._get_and_validate_batch("batch_expired", store_id)

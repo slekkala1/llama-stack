@@ -56,6 +56,7 @@ VECTOR_DBS_PREFIX = f"vector_dbs:{VERSION}::"
 OPENAI_VECTOR_STORES_PREFIX = f"openai_vector_stores:{VERSION}::"
 OPENAI_VECTOR_STORES_FILES_PREFIX = f"openai_vector_stores_files:{VERSION}::"
 OPENAI_VECTOR_STORES_FILES_CONTENTS_PREFIX = f"openai_vector_stores_files_contents:{VERSION}::"
+OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX = f"openai_vector_stores_file_batches:{VERSION}::"
 
 
 class OpenAIVectorStoreMixin(ABC):
@@ -160,9 +161,72 @@ class OpenAIVectorStoreMixin(ABC):
         for idx in range(len(raw_items)):
             await self.kvstore.delete(f"{contents_prefix}{idx}")
 
+    async def _save_openai_vector_store_file_batch(self, batch_id: str, batch_info: dict[str, Any]) -> None:
+        """Save file batch metadata to persistent storage."""
+        assert self.kvstore
+        key = f"{OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX}{batch_id}"
+        await self.kvstore.set(key=key, value=json.dumps(batch_info))
+        # update in-memory cache
+        self.openai_file_batches[batch_id] = batch_info
+
+    async def _load_openai_vector_store_file_batches(self) -> dict[str, dict[str, Any]]:
+        """Load all file batch metadata from persistent storage."""
+        assert self.kvstore
+        start_key = OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX
+        end_key = f"{OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX}\xff"
+        stored_data = await self.kvstore.values_in_range(start_key, end_key)
+
+        batches: dict[str, dict[str, Any]] = {}
+        for item in stored_data:
+            info = json.loads(item)
+            batches[info["id"]] = info
+        return batches
+
+    async def _delete_openai_vector_store_file_batch(self, batch_id: str) -> None:
+        """Delete file batch metadata from persistent storage and in-memory cache."""
+        assert self.kvstore
+        key = f"{OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX}{batch_id}"
+        await self.kvstore.delete(key)
+        # remove from in-memory cache
+        self.openai_file_batches.pop(batch_id, None)
+
+    async def _cleanup_expired_file_batches(self) -> None:
+        """Clean up expired file batches from persistent storage."""
+        assert self.kvstore
+        start_key = OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX
+        end_key = f"{OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX}\xff"
+        stored_data = await self.kvstore.values_in_range(start_key, end_key)
+
+        current_time = int(time.time())
+        expired_count = 0
+
+        for item in stored_data:
+            info = json.loads(item)
+            expires_at = info.get("expires_at")
+            if expires_at and current_time > expires_at:
+                logger.info(f"Cleaning up expired file batch: {info['id']}")
+                await self.kvstore.delete(f"{OPENAI_VECTOR_STORES_FILE_BATCHES_PREFIX}{info['id']}")
+                # Remove from in-memory cache if present
+                self.openai_file_batches.pop(info["id"], None)
+                expired_count += 1
+
+        if expired_count > 0:
+            logger.info(f"Cleaned up {expired_count} expired file batches")
+
+    async def _resume_incomplete_batches(self) -> None:
+        """Resume processing of incomplete file batches after server restart."""
+        for batch_id, batch_info in self.openai_file_batches.items():
+            if batch_info["status"] == "in_progress":
+                logger.info(f"Resuming incomplete file batch: {batch_id}")
+                # Restart the background processing task
+                asyncio.create_task(self._process_file_batch_async(batch_id, batch_info))
+
     async def initialize_openai_vector_stores(self) -> None:
-        """Load existing OpenAI vector stores into the in-memory cache."""
+        """Load existing OpenAI vector stores and file batches into the in-memory cache."""
         self.openai_vector_stores = await self._load_openai_vector_stores()
+        self.openai_file_batches = await self._load_openai_vector_store_file_batches()
+        # Resume any incomplete file batches
+        await self._resume_incomplete_batches()
 
     @abstractmethod
     async def delete_chunks(self, store_id: str, chunks_for_deletion: list[ChunkForDeletion]) -> None:
@@ -835,6 +899,8 @@ class OpenAIVectorStoreMixin(ABC):
 
         created_at = int(time.time())
         batch_id = f"batch_{uuid.uuid4()}"
+        # File batches expire after 7 days
+        expires_at = created_at + (7 * 24 * 60 * 60)
 
         # Initialize batch file counts - all files start as in_progress
         file_counts = VectorStoreFileCounts(
@@ -854,60 +920,71 @@ class OpenAIVectorStoreMixin(ABC):
             file_counts=file_counts,
         )
 
-        # Store batch object and file_ids in memory
-        self.openai_file_batches[batch_id] = {
-            "batch_object": batch_object,
+        batch_info = {
+            **batch_object.model_dump(),
             "file_ids": file_ids,
+            "attributes": attributes,
+            "chunking_strategy": chunking_strategy.model_dump(),
+            "expires_at": expires_at,
         }
+        await self._save_openai_vector_store_file_batch(batch_id, batch_info)
 
         # Start background processing of files
-        asyncio.create_task(self._process_file_batch_async(batch_id, file_ids, attributes, chunking_strategy))
+        asyncio.create_task(self._process_file_batch_async(batch_id, batch_info))
+
+        # Start background cleanup of expired batches (non-blocking)
+        asyncio.create_task(self._cleanup_expired_file_batches())
 
         return batch_object
 
     async def _process_file_batch_async(
         self,
         batch_id: str,
-        file_ids: list[str],
-        attributes: dict[str, Any] | None,
-        chunking_strategy: VectorStoreChunkingStrategy | None,
+        batch_info: dict[str, Any],
     ) -> None:
         """Process files in a batch asynchronously in the background."""
-        batch_info = self.openai_file_batches[batch_id]
-        batch_object = batch_info["batch_object"]
-        vector_store_id = batch_object.vector_store_id
+        file_ids = batch_info["file_ids"]
+        attributes = batch_info["attributes"]
+        chunking_strategy = batch_info["chunking_strategy"]
+        vector_store_id = batch_info["vector_store_id"]
+
         for file_id in file_ids:
             try:
-                # Process each file
+                chunking_strategy_obj = (
+                    VectorStoreChunkingStrategyStatic(**chunking_strategy)
+                    if chunking_strategy.get("type") == "static"
+                    else VectorStoreChunkingStrategyAuto(**chunking_strategy)
+                )
                 await self.openai_attach_file_to_vector_store(
                     vector_store_id=vector_store_id,
                     file_id=file_id,
                     attributes=attributes,
-                    chunking_strategy=chunking_strategy,
+                    chunking_strategy=chunking_strategy_obj,
                 )
 
                 # Update counts atomically
-                batch_object.file_counts.completed += 1
-                batch_object.file_counts.in_progress -= 1
+                batch_info["file_counts"]["completed"] += 1
+                batch_info["file_counts"]["in_progress"] -= 1
 
             except Exception as e:
                 logger.error(f"Failed to process file {file_id} in batch {batch_id}: {e}")
-                batch_object.file_counts.failed += 1
-                batch_object.file_counts.in_progress -= 1
+                batch_info["file_counts"]["failed"] += 1
+                batch_info["file_counts"]["in_progress"] -= 1
 
         # Update final status when all files are processed
-        if batch_object.file_counts.failed == 0:
-            batch_object.status = "completed"
-        elif batch_object.file_counts.completed == 0:
-            batch_object.status = "failed"
+        if batch_info["file_counts"]["failed"] == 0:
+            batch_info["status"] = "completed"
+        elif batch_info["file_counts"]["completed"] == 0:
+            batch_info["status"] = "failed"
         else:
-            batch_object.status = "completed"  # Partial success counts as completed
+            batch_info["status"] = "completed"  # Partial success counts as completed
 
-        logger.info(f"File batch {batch_id} processing completed with status: {batch_object.status}")
+        # Save final batch status to persistent storage (keep completed batches like vector stores)
+        await self._save_openai_vector_store_file_batch(batch_id, batch_info)
 
-    def _get_and_validate_batch(
-        self, batch_id: str, vector_store_id: str
-    ) -> tuple[dict[str, Any], VectorStoreFileBatchObject]:
+        logger.info(f"File batch {batch_id} processing completed with status: {batch_info['status']}")
+
+    def _get_and_validate_batch(self, batch_id: str, vector_store_id: str) -> dict[str, Any]:
         """Get and validate batch exists and belongs to vector store."""
         if vector_store_id not in self.openai_vector_stores:
             raise VectorStoreNotFoundError(vector_store_id)
@@ -916,12 +993,18 @@ class OpenAIVectorStoreMixin(ABC):
             raise ValueError(f"File batch {batch_id} not found")
 
         batch_info = self.openai_file_batches[batch_id]
-        batch_object = batch_info["batch_object"]
 
-        if batch_object.vector_store_id != vector_store_id:
+        # Check if batch has expired (read-only check)
+        expires_at = batch_info.get("expires_at")
+        if expires_at:
+            current_time = int(time.time())
+            if current_time > expires_at:
+                raise ValueError(f"File batch {batch_id} has expired after 7 days from creation")
+
+        if batch_info["vector_store_id"] != vector_store_id:
             raise ValueError(f"File batch {batch_id} does not belong to vector store {vector_store_id}")
 
-        return batch_info, batch_object
+        return batch_info
 
     def _paginate_objects(
         self,
@@ -965,8 +1048,9 @@ class OpenAIVectorStoreMixin(ABC):
         vector_store_id: str,
     ) -> VectorStoreFileBatchObject:
         """Retrieve a vector store file batch."""
-        _, batch_object = self._get_and_validate_batch(batch_id, vector_store_id)
-        return batch_object
+        batch_info = self._get_and_validate_batch(batch_id, vector_store_id)
+        # Convert dict back to Pydantic model for API response
+        return VectorStoreFileBatchObject(**batch_info)
 
     async def openai_list_files_in_vector_store_file_batch(
         self,
@@ -979,7 +1063,7 @@ class OpenAIVectorStoreMixin(ABC):
         order: str | None = "desc",
     ) -> VectorStoreFilesListInBatchResponse:
         """Returns a list of vector store files in a batch."""
-        batch_info, _ = self._get_and_validate_batch(batch_id, vector_store_id)
+        batch_info = self._get_and_validate_batch(batch_id, vector_store_id)
         batch_file_ids = batch_info["file_ids"]
 
         # Load file objects for files in this batch
@@ -1019,24 +1103,19 @@ class OpenAIVectorStoreMixin(ABC):
         vector_store_id: str,
     ) -> VectorStoreFileBatchObject:
         """Cancel a vector store file batch."""
-        batch_info, batch_object = self._get_and_validate_batch(batch_id, vector_store_id)
+        batch_info = self._get_and_validate_batch(batch_id, vector_store_id)
 
         # Only allow cancellation if batch is in progress
-        if batch_object.status not in ["in_progress"]:
-            raise ValueError(f"Cannot cancel batch {batch_id} with status {batch_object.status}")
+        if batch_info["status"] not in ["in_progress"]:
+            raise ValueError(f"Cannot cancel batch {batch_id} with status {batch_info['status']}")
 
-        # Create updated batch object with cancelled status
-        updated_batch = VectorStoreFileBatchObject(
-            id=batch_object.id,
-            object=batch_object.object,
-            created_at=batch_object.created_at,
-            vector_store_id=batch_object.vector_store_id,
-            status="cancelled",
-            file_counts=batch_object.file_counts,
-        )
+        # Update batch with cancelled status
+        batch_info["status"] = "cancelled"
 
-        # Update the stored batch info
-        batch_info["batch_object"] = updated_batch
-        self.openai_file_batches[batch_id] = batch_info
+        # Save cancelled batch status to persistent storage (keep cancelled batches like vector stores)
+        await self._save_openai_vector_store_file_batch(batch_id, batch_info)
+
+        # Create updated batch object for API response
+        updated_batch = VectorStoreFileBatchObject(**batch_info)
 
         return updated_batch

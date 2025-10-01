@@ -18,6 +18,13 @@ from llama_stack.log import get_logger
 logger = get_logger(name=__name__, category="vector_io")
 
 
+@pytest.fixture(autouse=True)
+def rate_limit_between_tests():
+    """Add 10 second delay between integration tests to prevent rate limiting."""
+    yield  # Run the test first
+    time.sleep(10)  # Delay after each test
+
+
 def skip_if_provider_doesnt_support_openai_vector_stores(client_with_models):
     vector_io_providers = [p for p in client_with_models.providers.list() if p.api == "vector_io"]
     for p in vector_io_providers:
