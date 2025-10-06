@@ -1037,8 +1037,6 @@ class OpenAIVectorStoreMixin(ABC):
                         attributes=attributes,
                         chunking_strategy=chunking_strategy_obj,
                     )
-                    # Add delay after each file to avoid rate limits from rapid sequential API calls
-                    await asyncio.sleep(5.0)  # 5 second delay between files
                     return file_id, vector_store_file_object.status == "completed"
                 except Exception as e:
                     logger.error(f"Failed to process file {file_id} in batch {batch_id}: {e}")
@@ -1067,11 +1065,6 @@ class OpenAIVectorStoreMixin(ABC):
 
             # Save progress after each chunk
             await self._save_openai_vector_store_file_batch(batch_id, batch_info)
-
-            # Add delay between chunks to avoid rate limits
-            if chunk_end < total_files:  # Don't delay after the last chunk
-                logger.info("Adding 10 second delay before processing next chunk")
-                await asyncio.sleep(10.0)  # 10 second delay between chunks
 
     def _update_file_counts(self, batch_info: dict[str, Any], success: bool) -> None:
         """Update file counts based on processing result."""
