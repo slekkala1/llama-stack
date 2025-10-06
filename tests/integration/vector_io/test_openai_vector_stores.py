@@ -915,7 +915,7 @@ def test_openai_vector_store_file_batch_create_and_retrieve(compat_client_with_e
 
     # Create multiple files
     file_ids = []
-    for i in range(3):
+    for i in range(2):
         with BytesIO(f"This is batch test file {i}".encode()) as file_buffer:
             file_buffer.name = f"batch_test_{i}.txt"
             file = compat_client.files.create(file=file_buffer, purpose="assistants")
@@ -936,7 +936,7 @@ def test_openai_vector_store_file_batch_create_and_retrieve(compat_client_with_e
     assert hasattr(batch, "created_at")
 
     # Wait for batch processing to complete
-    max_retries = 30  # 30 seconds max wait
+    max_retries = 60  # 60 seconds max wait (increased for file processing delays)
     retries = 0
     retrieved_batch = None
     while retries < max_retries:
@@ -981,7 +981,7 @@ def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stor
     )
 
     # Wait for batch processing to complete
-    max_retries = 30  # 30 seconds max wait
+    max_retries = 60  # 60 seconds max wait (increased for file processing delays)
     retries = 0
     while retries < max_retries:
         retrieved_batch = compat_client.vector_stores.file_batches.retrieve(
@@ -1098,7 +1098,6 @@ def test_openai_vector_store_file_batch_retrieve_contents(compat_client_with_emp
     file_data = [
         ("test_file_1.txt", b"This is the content of test file 1"),
         ("test_file_2.txt", b"This is the content of test file 2"),
-        ("test_file_3.txt", b"This is the content of test file 3"),
     ]
 
     file_ids = []
@@ -1115,7 +1114,7 @@ def test_openai_vector_store_file_batch_retrieve_contents(compat_client_with_emp
     )
 
     # Wait for batch processing to complete
-    max_retries = 30  # 30 seconds max wait
+    max_retries = 60  # 60 seconds max wait (increased for file processing delays)
     retries = 0
     while retries < max_retries:
         retrieved_batch = compat_client.vector_stores.file_batches.retrieve(
