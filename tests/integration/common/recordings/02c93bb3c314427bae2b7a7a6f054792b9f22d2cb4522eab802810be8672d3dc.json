@@ -17,7 +17,7 @@
             "model": "nomic-embed-text:latest",
             "name": "nomic-embed-text:latest",
             "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
-            "expires_at": "2025-10-06T10:49:12.191258-07:00",
+            "expires_at": "2025-10-06T11:15:12.452123-07:00",
             "size": 848677888,
             "size_vram": 848677888,
             "details": {
