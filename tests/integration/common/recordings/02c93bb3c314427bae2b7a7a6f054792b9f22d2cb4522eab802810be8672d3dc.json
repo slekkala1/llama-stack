@@ -14,23 +14,22 @@
       "__data__": {
         "models": [
           {
-            "model": "llama3.2:3b",
-            "name": "llama3.2:3b",
-            "digest": "a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72",
-            "expires_at": "2025-10-04T12:20:09.202126-07:00",
-            "size": 3367856128,
-            "size_vram": 3367856128,
+            "model": "nomic-embed-text:latest",
+            "name": "nomic-embed-text:latest",
+            "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+            "expires_at": "2025-10-06T10:49:12.191258-07:00",
+            "size": 848677888,
+            "size_vram": 848677888,
             "details": {
               "parent_model": "",
               "format": "gguf",
-              "family": "llama",
+              "family": "nomic-bert",
               "families": [
-                "llama"
+                "nomic-bert"
               ],
-              "parameter_size": "3.2B",
-              "quantization_level": "Q4_K_M"
-            },
-            "context_length": 4096
+              "parameter_size": "137M",
+              "quantization_level": "F16"
+            }
           }
         ]
       }
