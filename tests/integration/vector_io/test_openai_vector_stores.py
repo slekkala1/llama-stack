@@ -533,7 +533,7 @@ def test_openai_vector_store_attach_files_on_creation(compat_client_with_empty_s
 
     # Create some files and attach them to the vector store
     valid_file_ids = []
-    for i in range(2):
+    for i in range(3):
         with BytesIO(f"This is a test file {i}".encode()) as file_buffer:
             file_buffer.name = f"openai_test_{i}.txt"
             file = compat_client.files.create(file=file_buffer, purpose="assistants")
@@ -589,7 +589,7 @@ def test_openai_vector_store_list_files(compat_client_with_empty_stores, client_
 
     # Create some files and attach them to the vector store
     file_ids = []
-    for i in range(2):
+    for i in range(3):
         with BytesIO(f"This is a test file {i}".encode()) as file_buffer:
             file_buffer.name = f"openai_test_{i}.txt"
             file = compat_client.files.create(file=file_buffer, purpose="assistants")
@@ -708,7 +708,7 @@ def test_openai_vector_store_delete_file(compat_client_with_empty_stores, client
 
     # Create some files and attach them to the vector store
     file_ids = []
-    for i in range(2):
+    for i in range(3):
         with BytesIO(f"This is a test file {i}".encode()) as file_buffer:
             file_buffer.name = f"openai_test_{i}.txt"
             file = compat_client.files.create(file=file_buffer, purpose="assistants")
@@ -840,7 +840,7 @@ def test_create_vector_store_files_duplicate_vector_store_name(compat_client_wit
 
     # Create a vector store with files
     file_ids = []
-    for i in range(2):
+    for i in range(3):
         with BytesIO(f"This is a test file {i}".encode()) as file_buffer:
             file_buffer.name = f"openai_test_{i}.txt"
             file = compat_client.files.create(file=file_buffer, purpose="assistants")
