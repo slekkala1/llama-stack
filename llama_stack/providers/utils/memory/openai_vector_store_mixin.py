@@ -53,8 +53,8 @@ logger = get_logger(name=__name__, category="providers::utils")
 # Constants for OpenAI vector stores
 CHUNK_MULTIPLIER = 5
 FILE_BATCH_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60  # 1 day in seconds
-MAX_CONCURRENT_FILES_PER_BATCH = 5  # Maximum concurrent file processing within a batch
-FILE_BATCH_CHUNK_SIZE = 10  # Process files in chunks of this size (2x concurrency)
+MAX_CONCURRENT_FILES_PER_BATCH = 1  # Maximum concurrent file processing within a batch
+FILE_BATCH_CHUNK_SIZE = 5  # Process files in chunks of this size
 
 VERSION = "v3"
 VECTOR_DBS_PREFIX = f"vector_dbs:{VERSION}::"
@@ -1031,13 +1031,15 @@ class OpenAIVectorStoreMixin(ABC):
             """Process a single file with concurrency control."""
             async with semaphore:
                 try:
-                    await self.openai_attach_file_to_vector_store(
+                    vector_store_file_object = await self.openai_attach_file_to_vector_store(
                         vector_store_id=vector_store_id,
                         file_id=file_id,
                         attributes=attributes,
                         chunking_strategy=chunking_strategy_obj,
                     )
-                    return file_id, True
+                    # Add delay after each file to avoid rate limits from rapid sequential API calls
+                    await asyncio.sleep(5.0)  # 5 second delay between files
+                    return file_id, vector_store_file_object.status == "completed"
                 except Exception as e:
                     logger.error(f"Failed to process file {file_id} in batch {batch_id}: {e}")
                     return file_id, False
@@ -1048,8 +1050,10 @@ class OpenAIVectorStoreMixin(ABC):
             chunk_end = min(chunk_start + FILE_BATCH_CHUNK_SIZE, total_files)
             chunk = file_ids[chunk_start:chunk_end]
 
+            chunk_num = chunk_start // FILE_BATCH_CHUNK_SIZE + 1
+            total_chunks = (total_files + FILE_BATCH_CHUNK_SIZE - 1) // FILE_BATCH_CHUNK_SIZE
             logger.info(
-                f"Processing chunk {chunk_start // FILE_BATCH_CHUNK_SIZE + 1} of {(total_files + FILE_BATCH_CHUNK_SIZE - 1) // FILE_BATCH_CHUNK_SIZE} ({len(chunk)} files)"
+                f"Processing chunk {chunk_num} of {total_chunks} ({len(chunk)} files, {chunk_start + 1}-{chunk_end} of {total_files} total files)"
             )
 
             async with asyncio.TaskGroup() as tg:
@@ -1063,6 +1067,11 @@ class OpenAIVectorStoreMixin(ABC):
 
             # Save progress after each chunk
             await self._save_openai_vector_store_file_batch(batch_id, batch_info)
+
+            # Add delay between chunks to avoid rate limits
+            if chunk_end < total_files:  # Don't delay after the last chunk
+                logger.info("Adding 10 second delay before processing next chunk")
+                await asyncio.sleep(10.0)  # 10 second delay between chunks
 
     def _update_file_counts(self, batch_info: dict[str, Any], success: bool) -> None:
         """Update file counts based on processing result."""
