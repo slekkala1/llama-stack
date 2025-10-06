@@ -53,8 +53,8 @@ logger = get_logger(name=__name__, category="providers::utils")
 # Constants for OpenAI vector stores
 CHUNK_MULTIPLIER = 5
 FILE_BATCH_CLEANUP_INTERVAL_SECONDS = 24 * 60 * 60  # 1 day in seconds
-MAX_CONCURRENT_FILES_PER_BATCH = 1  # Maximum concurrent file processing within a batch
-FILE_BATCH_CHUNK_SIZE = 5  # Process files in chunks of this size
+MAX_CONCURRENT_FILES_PER_BATCH = 3  # Maximum concurrent file processing within a batch
+FILE_BATCH_CHUNK_SIZE = 10  # Process files in chunks of this size
 
 VERSION = "v3"
 VECTOR_DBS_PREFIX = f"vector_dbs:{VERSION}::"
