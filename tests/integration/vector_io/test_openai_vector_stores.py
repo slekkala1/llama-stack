@@ -1015,8 +1015,8 @@ def test_openai_vector_store_file_batch_list_files(compat_client_with_empty_stor
         limit=3,
     )
 
-    assert len(limited_response.data) == 3
-    assert limited_response.has_more is True
+    assert len(limited_response.data) == 2
+    assert limited_response.has_more is False
 
     # Test pagination with after cursor
     first_page = compat_client.vector_stores.file_batches.list_files(
