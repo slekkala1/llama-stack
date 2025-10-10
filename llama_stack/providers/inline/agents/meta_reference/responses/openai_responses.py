@@ -34,7 +34,6 @@ from llama_stack.apis.conversations import Conversations
 from llama_stack.apis.conversations.conversations import ConversationItem
 from llama_stack.apis.inference import (
     Inference,
-    Message,
     OpenAIMessageParam,
     OpenAISystemMessageParam,
 )
@@ -47,7 +46,6 @@ from llama_stack.providers.utils.responses.responses_store import (
     _OpenAIResponseObjectWithInputAndMessages,
 )
 
-from ..safety import SafetyException
 from .streaming import StreamingResponseOrchestrator
 from .tool_executor import ToolExecutor
 from .types import ChatCompletionContext, ToolContext
@@ -55,7 +53,6 @@ from .utils import (
     convert_response_input_to_chat_messages,
     convert_response_text_to_chat_response_format,
     extract_shield_ids,
-    run_multiple_shields,
 )
 
 logger = get_logger(name=__name__, category="openai_responses")
@@ -296,18 +293,6 @@ class OpenAIResponsesImpl:
             if final_response is None:
                 raise ValueError("The response stream never reached a terminal state")
             return final_response
-
-    async def _check_input_safety(
-        self, messages: list[Message], shield_ids: list[str]
-    ) -> OpenAIResponseContentPartRefusal | None:
-        """Validate input messages against shields. Returns refusal content if violation found."""
-        try:
-            await run_multiple_shields(self.safety_api, messages, shield_ids)
-        except SafetyException as e:
-            logger.info(f"Input shield violation: {e.violation.user_message}")
-            return OpenAIResponseContentPartRefusal(
-                refusal=e.violation.user_message or "Content blocked by safety shields"
-            )
 
     async def _create_refusal_response_events(
         self, refusal_content: OpenAIResponseContentPartRefusal, response_id: str, created_at: int, model: str

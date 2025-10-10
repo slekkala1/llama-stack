@@ -49,6 +49,7 @@ from llama_stack.apis.agents.openai_responses import (
 from llama_stack.apis.inference import (
     CompletionMessage,
     Inference,
+    Message,
     OpenAIAssistantMessageParam,
     OpenAIChatCompletion,
     OpenAIChatCompletionChunk,
@@ -126,7 +127,7 @@ class StreamingResponseOrchestrator:
         # Track if we've sent a refusal response
         self.violation_detected = False
 
-    async def _check_input_safety(self, messages: list[OpenAIMessageParam]) -> OpenAIResponseContentPartRefusal | None:
+    async def _check_input_safety(self, messages: list[Message]) -> OpenAIResponseContentPartRefusal | None:
         """Validate input messages against shields. Returns refusal content if violation found."""
         try:
             await run_multiple_shields(self.safety_api, messages, self.shield_ids)
@@ -141,13 +142,12 @@ class StreamingResponseOrchestrator:
     ) -> AsyncIterator[OpenAIResponseObjectStream]:
         """Create refusal response events for input safety violations."""
         # Create the refusal content part explicitly with the correct structure
-        refusal_part = OpenAIResponseContentPartRefusal(refusal=refusal_content.refusal, type="refusal")
         refusal_response = OpenAIResponseObject(
             id=self.response_id,
             created_at=self.created_at,
             model=self.ctx.model,
             status="completed",
-            output=[OpenAIResponseMessage(role="assistant", content=[refusal_part], type="message")],
+            output=[OpenAIResponseMessage(role="assistant", content=[refusal_content], type="message")],
         )
         yield OpenAIResponseObjectStreamResponseCompleted(response=refusal_response)
 
@@ -557,7 +557,7 @@ class StreamingResponseOrchestrator:
                                     response_tool_call.function.arguments or ""
                                 ) + tool_call.function.arguments
 
-            # Safety check after processing all chunks
+            # Safety check after processing all choices in this chunk
             if chat_response_content:
                 accumulated_text = "".join(chat_response_content)
                 violation_message = await self._check_output_stream_chunk_safety(accumulated_text)

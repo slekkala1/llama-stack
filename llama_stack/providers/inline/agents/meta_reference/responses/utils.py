@@ -4,6 +4,7 @@
 # This source code is licensed under the terms described in the LICENSE file in
 # the root directory of this source tree.
 
+import asyncio
 import re
 import uuid
 
@@ -317,12 +318,13 @@ async def run_multiple_shields(safety_api: Safety, messages: list[Message], shie
     """Run multiple shields against messages and raise SafetyException for violations."""
     if not shield_ids or not messages:
         return
-    for shield_id in shield_ids:
-        response = await safety_api.run_shield(
-            shield_id=shield_id,
-            messages=messages,
-            params={},
-        )
+    shield_tasks = [
+        safety_api.run_shield(shield_id=shield_id, messages=messages, params={}) for shield_id in shield_ids
+    ]
+
+    responses = await asyncio.gather(*shield_tasks)
+
+    for response in responses:
         if response.violation and response.violation.violation_level.name == "ERROR":
             from ..safety import SafetyException
 
