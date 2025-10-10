@@ -131,8 +131,14 @@ class OpenAIResponseOutputMessageContentOutputText(BaseModel):
     annotations: list[OpenAIResponseAnnotations] = Field(default_factory=list)
 
 
+@json_schema_type
+class OpenAIResponseContentPartRefusal(BaseModel):
+    type: Literal["refusal"] = "refusal"
+    refusal: str
+
+
 OpenAIResponseOutputMessageContent = Annotated[
-    OpenAIResponseOutputMessageContentOutputText,
+    OpenAIResponseOutputMessageContentOutputText | OpenAIResponseContentPartRefusal,
     Field(discriminator="type"),
 ]
 register_schema(OpenAIResponseOutputMessageContent, name="OpenAIResponseOutputMessageContent")

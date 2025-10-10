@@ -14,9 +14,11 @@ from llama_stack.apis.agents.openai_responses import (
     MCPListToolsTool,
     OpenAIResponseContentPartOutputText,
     OpenAIResponseError,
+    OpenAIResponseContentPartRefusal,
     OpenAIResponseInputTool,
     OpenAIResponseInputToolMCP,
     OpenAIResponseMCPApprovalRequest,
+    OpenAIResponseMessage,
     OpenAIResponseObject,
     OpenAIResponseObjectStream,
     OpenAIResponseObjectStreamResponseCompleted,
@@ -52,8 +54,14 @@ from llama_stack.apis.inference import (
 from llama_stack.log import get_logger
 from llama_stack.providers.utils.telemetry import tracing
 
+from ..safety import SafetyException
 from .types import ChatCompletionContext, ChatCompletionResult
-from .utils import convert_chat_choice_to_response_message, is_function_tool_call
+from .utils import (
+    convert_chat_choice_to_response_message,
+    convert_openai_to_inference_messages,
+    is_function_tool_call,
+    run_multiple_shields,
+)
 
 logger = get_logger(name=__name__, category="agents::meta_reference")
 
@@ -89,6 +97,8 @@ class StreamingResponseOrchestrator:
         text: OpenAIResponseText,
         max_infer_iters: int,
         tool_executor,  # Will be the tool execution logic from the main class
+        safety_api,
+        shield_ids: list[str] | None = None,
     ):
         self.inference_api = inference_api
         self.ctx = ctx
@@ -97,6 +107,8 @@ class StreamingResponseOrchestrator:
         self.text = text
         self.max_infer_iters = max_infer_iters
         self.tool_executor = tool_executor
+        self.safety_api = safety_api
+        self.shield_ids = shield_ids or []
         self.sequence_number = 0
         # Store MCP tool mapping that gets built during tool processing
         self.mcp_tool_to_server: dict[str, OpenAIResponseInputToolMCP] = ctx.tool_context.previous_tools or {}
@@ -104,6 +116,43 @@ class StreamingResponseOrchestrator:
         self.final_messages: list[OpenAIMessageParam] = []
         # mapping for annotations
         self.citation_files: dict[str, str] = {}
+        # Track accumulated text for shield validation
+        self.accumulated_text = ""
+        # Track if we've sent a refusal response
+        self.violation_detected = False
+
+    async def _check_output_stream_safety(self, text_delta: str) -> str | None:
+        """Check streaming text content against shields. Returns violation message if blocked."""
+        if not self.shield_ids:
+            return None
+
+        self.accumulated_text += text_delta
+
+        # Check accumulated text periodically for violations (every 50 characters or at word boundaries)
+        if len(self.accumulated_text) > 50 or text_delta.endswith((" ", "\n", ".", "!", "?")):
+            temp_messages = [{"role": "assistant", "content": self.accumulated_text}]
+            messages = convert_openai_to_inference_messages(temp_messages)
+
+            try:
+                await run_multiple_shields(self.safety_api, messages, self.shield_ids)
+            except SafetyException as e:
+                logger.info(f"Output shield violation: {e.violation.user_message}")
+                return e.violation.user_message or "Generated content blocked by safety shields"
+
+    async def _create_refusal_response(self, violation_message: str) -> OpenAIResponseObjectStream:
+        """Create a refusal response to replace streaming content."""
+        refusal_content = OpenAIResponseContentPartRefusal(refusal=violation_message)
+
+        # Create a completed refusal response
+        refusal_response = OpenAIResponseObject(
+            id=self.response_id,
+            created_at=self.created_at,
+            model=self.ctx.model,
+            status="completed",
+            output=[OpenAIResponseMessage(role="assistant", content=[refusal_content], type="message")],
+        )
+
+        return OpenAIResponseObjectStreamResponseCompleted(response=refusal_response)
 
     def _clone_outputs(self, outputs: list[OpenAIResponseOutput]) -> list[OpenAIResponseOutput]:
         cloned: list[OpenAIResponseOutput] = []
@@ -326,6 +375,15 @@ class StreamingResponseOrchestrator:
             for chunk_choice in chunk.choices:
                 # Emit incremental text content as delta events
                 if chunk_choice.delta.content:
+                    # Check output stream safety before yielding content
+                    violation_message = await self._check_output_stream_safety(chunk_choice.delta.content)
+                    if violation_message:
+                        # Stop streaming and send refusal response
+                        yield await self._create_refusal_response(violation_message)
+                        self.violation_detected = True
+                        # Return immediately - no further processing needed
+                        return
+
                     # Emit content_part.added event for first text chunk
                     if not content_part_emitted:
                         content_part_emitted = True

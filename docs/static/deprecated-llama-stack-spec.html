@@ -8821,6 +8821,25 @@
                     }
                 }
             },
+            "OpenAIResponseContentPartRefusal": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "refusal",
+                        "default": "refusal"
+                    },
+                    "refusal": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "type",
+                    "refusal"
+                ],
+                "title": "OpenAIResponseContentPartRefusal"
+            },
             "OpenAIResponseError": {
                 "type": "object",
                 "properties": {
@@ -9395,6 +9414,23 @@
                 }
             },
             "OpenAIResponseOutputMessageContent": {
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/OpenAIResponseOutputMessageContentOutputText"
+                    },
+                    {
+                        "$ref": "#/components/schemas/OpenAIResponseContentPartRefusal"
+                    }
+                ],
+                "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                        "output_text": "#/components/schemas/OpenAIResponseOutputMessageContentOutputText",
+                        "refusal": "#/components/schemas/OpenAIResponseContentPartRefusal"
+                    }
+                }
+            },
+            "OpenAIResponseOutputMessageContentOutputText": {
                 "type": "object",
                 "properties": {
                     "text": {

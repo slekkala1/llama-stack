@@ -5858,6 +5858,25 @@
                     }
                 }
             },
+            "OpenAIResponseContentPartRefusal": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "const": "refusal",
+                        "default": "refusal"
+                    },
+                    "refusal": {
+                        "type": "string"
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "type",
+                    "refusal"
+                ],
+                "title": "OpenAIResponseContentPartRefusal"
+            },
             "OpenAIResponseInputMessageContent": {
                 "oneOf": [
                     {
@@ -6001,6 +6020,23 @@
                 "description": "Corresponds to the various Message types in the Responses API. They are all under one type because the Responses API gives them all the same \"type\" value, and there is no way to tell them apart in certain scenarios."
             },
             "OpenAIResponseOutputMessageContent": {
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/OpenAIResponseOutputMessageContentOutputText"
+                    },
+                    {
+                        "$ref": "#/components/schemas/OpenAIResponseContentPartRefusal"
+                    }
+                ],
+                "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                        "output_text": "#/components/schemas/OpenAIResponseOutputMessageContentOutputText",
+                        "refusal": "#/components/schemas/OpenAIResponseContentPartRefusal"
+                    }
+                }
+            },
+            "OpenAIResponseOutputMessageContentOutputText": {
                 "type": "object",
                 "properties": {
                     "text": {
