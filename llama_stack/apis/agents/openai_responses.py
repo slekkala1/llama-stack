@@ -134,6 +134,7 @@ class OpenAIResponseOutputMessageContentOutputText(BaseModel):
 @json_schema_type
 class OpenAIResponseContentPartRefusal(BaseModel):
     """Refusal content within a streamed response part.
+
     :param type: Content part type identifier, always "refusal"
     :param refusal: Refusal text supplied by the model
     """

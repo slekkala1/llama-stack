@@ -38,11 +38,6 @@ def responses_impl(mock_apis):
     return OpenAIResponsesImpl(**mock_apis)
 
 
-# ============================================================================
-# Shield ID Extraction Tests
-# ============================================================================
-
-
 def test_extract_shield_ids_from_strings(responses_impl):
     """Test extraction from simple string shield IDs."""
     shields = ["llama-guard", "content-filter", "nsfw-detector"]
@@ -90,11 +85,6 @@ def test_extract_shield_ids_unknown_format(responses_impl):
     shields = ["valid-shield", unknown_object, "another-shield"]
     with pytest.raises(ValueError, match="Unsupported shield type"):
         extract_shield_ids(shields)
-
-
-# ============================================================================
-# Text Content Extraction Tests
-# ============================================================================
 
 
 def test_extract_text_content_string(responses_impl):

@@ -312,6 +312,7 @@ def is_function_tool_call(
             return True
     return False
 
+
 async def run_multiple_shields(safety_api: Safety, messages: list[Message], shield_ids: list[str]) -> None:
     """Run multiple shields against messages and raise SafetyException for violations."""
     if not shield_ids or not messages:
@@ -340,7 +341,7 @@ def extract_shield_ids(shields: list | None) -> list[str]:
         elif isinstance(shield, ResponseShieldSpec):
             shield_ids.append(shield.type)
         else:
-            raise ValueError(f"Unsupported shield type: {type(shield)}")
+            raise ValueError(f"Unknown shield format: {shield}, expected str or ResponseShieldSpec")
 
     return shield_ids
 
