@@ -178,7 +178,7 @@ async def convert_response_input_to_chat_messages(
                 pass
             else:
                 content = await convert_response_content_to_chat_content(input_item.content)
-                message_type = get_message_type_by_role(input_item.role)
+                message_type = await get_message_type_by_role(input_item.role)
                 if message_type is None:
                     raise ValueError(
                         f"Llama Stack OpenAI Responses does not yet support message role '{input_item.role}' in this context"

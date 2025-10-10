@@ -345,7 +345,7 @@ class OpenAIResponsesImpl:
                 return
 
         # Structured outputs
-        response_format = convert_response_text_to_chat_response_format(text)
+        response_format = await convert_response_text_to_chat_response_format(text)
 
         ctx = ChatCompletionContext(
             model=model,

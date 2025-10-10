@@ -13,8 +13,8 @@ from llama_stack.apis.agents.openai_responses import (
     ApprovalFilter,
     MCPListToolsTool,
     OpenAIResponseContentPartOutputText,
-    OpenAIResponseError,
     OpenAIResponseContentPartRefusal,
+    OpenAIResponseError,
     OpenAIResponseInputTool,
     OpenAIResponseInputToolMCP,
     OpenAIResponseMCPApprovalRequest,
@@ -226,6 +226,11 @@ class StreamingResponseOrchestrator:
                         completion_result_data = stream_event_or_result
                     else:
                         yield stream_event_or_result
+
+                # If violation detected, skip the rest of processing since we already sent refusal
+                if self.violation_detected:
+                    return
+
                 if not completion_result_data:
                     raise ValueError("Streaming chunk processor failed to return completion data")
                 last_completion_result = completion_result_data

@@ -84,14 +84,14 @@ def test_extract_shield_ids_empty_list(responses_impl):
     assert result == []
 
 
-def test_extract_shield_ids_unknown_format(responses_impl, caplog):
-    """Test extraction with unknown shield format logs warning."""
+def test_extract_shield_ids_unknown_format(responses_impl):
+    """Test extraction with unknown shield format raises ValueError."""
     # Create an object that's neither string nor ResponseShieldSpec
     unknown_object = {"invalid": "format"}  # Plain dict, not ResponseShieldSpec
     shields = ["valid-shield", unknown_object, "another-shield"]
-    result = extract_shield_ids(shields)
-    assert result == ["valid-shield", "another-shield"]
-    assert "Unknown shield format" in caplog.text
+
+    with pytest.raises(ValueError, match="Unknown shield format.*expected str or ResponseShieldSpec"):
+        extract_shield_ids(shields)
 
 
 def test_extract_text_content_string(responses_impl):
