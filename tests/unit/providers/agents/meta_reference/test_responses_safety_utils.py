@@ -83,7 +83,7 @@ def test_extract_shield_ids_unknown_format(responses_impl):
     # Create an object that's neither string nor ResponseShieldSpec
     unknown_object = {"invalid": "format"}  # Plain dict, not ResponseShieldSpec
     shields = ["valid-shield", unknown_object, "another-shield"]
-    with pytest.raises(ValueError, match="Unsupported shield type"):
+    with pytest.raises(ValueError, match="Unknown shield format.*expected str or ResponseShieldSpec"):
         extract_shield_ids(shields)
 
 

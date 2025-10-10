@@ -264,6 +264,7 @@ class StreamingResponseOrchestrator:
                         completion_result_data = stream_event_or_result
                     else:
                         yield stream_event_or_result
+
                 # If violation detected, skip the rest of processing since we already sent refusal
                 if self.violation_detected:
                     return
