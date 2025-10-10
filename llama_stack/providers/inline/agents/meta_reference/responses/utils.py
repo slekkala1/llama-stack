@@ -47,6 +47,9 @@ from llama_stack.apis.inference import (
     OpenAISystemMessageParam,
     OpenAIToolMessageParam,
     OpenAIUserMessageParam,
+    StopReason,
+    SystemMessage,
+    UserMessage,
 )
 from llama_stack.apis.safety import Safety
 
@@ -244,7 +247,7 @@ async def convert_response_text_to_chat_response_format(
     raise ValueError(f"Unsupported text format: {text.format}")
 
 
-def get_message_type_by_role(role: str) -> type[OpenAIMessageParam] | None:
+async def get_message_type_by_role(role: str) -> type[OpenAIMessageParam] | None:
     """Get the appropriate OpenAI message parameter type for a given role."""
     role_to_type = {
         "user": OpenAIUserMessageParam,

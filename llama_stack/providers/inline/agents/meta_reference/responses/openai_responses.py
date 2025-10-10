@@ -34,6 +34,7 @@ from llama_stack.apis.conversations import Conversations
 from llama_stack.apis.conversations.conversations import ConversationItem
 from llama_stack.apis.inference import (
     Inference,
+    Message,
     OpenAIMessageParam,
     OpenAISystemMessageParam,
 )
@@ -46,10 +47,12 @@ from llama_stack.providers.utils.responses.responses_store import (
     _OpenAIResponseObjectWithInputAndMessages,
 )
 
+from ..safety import SafetyException
 from .streaming import StreamingResponseOrchestrator
 from .tool_executor import ToolExecutor
 from .types import ChatCompletionContext, ToolContext
 from .utils import (
+    convert_openai_to_inference_messages,
     convert_response_input_to_chat_messages,
     convert_response_text_to_chat_response_format,
     extract_shield_ids,
@@ -71,6 +74,7 @@ class OpenAIResponsesImpl:
         tool_runtime_api: ToolRuntime,
         responses_store: ResponsesStore,
         vector_io_api: VectorIO,  # VectorIO
+        safety_api: Safety,
         conversations_api: Conversations,
         safety_api: Safety,
     ):
@@ -79,6 +83,7 @@ class OpenAIResponsesImpl:
         self.tool_runtime_api = tool_runtime_api
         self.responses_store = responses_store
         self.vector_io_api = vector_io_api
+        self.safety_api = safety_api
         self.conversations_api = conversations_api
         self.safety_api = safety_api
         self.tool_executor = ToolExecutor(
@@ -338,6 +343,21 @@ class OpenAIResponsesImpl:
             input, tools, previous_response_id
         )
         await self._prepend_instructions(messages, instructions)
+
+        # Input safety validation hook - validates messages before streaming orchestrator starts
+        if shield_ids:
+            input_messages = convert_openai_to_inference_messages(messages)
+            input_refusal = await self._check_input_safety(input_messages, shield_ids)
+            if input_refusal:
+                # Return refusal response immediately
+                response_id = f"resp-{uuid.uuid4()}"
+                created_at = int(time.time())
+
+                async for refusal_event in self._create_refusal_response_events(
+                    input_refusal, response_id, created_at, model
+                ):
+                    yield refusal_event
+                return
 
         # Structured outputs
         response_format = await convert_response_text_to_chat_response_format(text)

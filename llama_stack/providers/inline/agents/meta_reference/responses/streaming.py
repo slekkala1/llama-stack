@@ -467,6 +467,15 @@ class StreamingResponseOrchestrator:
             for chunk_choice in chunk.choices:
                 # Emit incremental text content as delta events
                 if chunk_choice.delta.content:
+                    # Check output stream safety before yielding content
+                    violation_message = await self._check_output_stream_safety(chunk_choice.delta.content)
+                    if violation_message:
+                        # Stop streaming and send refusal response
+                        yield await self._create_refusal_response(violation_message)
+                        self.violation_detected = True
+                        # Return immediately - no further processing needed
+                        return
+
                     # Emit content_part.added event for first text chunk
                     if not content_part_emitted:
                         content_part_emitted = True
