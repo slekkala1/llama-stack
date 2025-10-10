@@ -1084,11 +1084,6 @@ async def test_create_openai_response_with_invalid_text_format(openai_responses_
         )
 
 
-# ============================================================================
-# Shield Validation Tests
-# ============================================================================
-
-
 async def test_check_input_safety_no_violation(openai_responses_impl):
     """Test input shield validation with no violations."""
     messages = [UserMessage(content="Hello world")]

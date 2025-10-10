@@ -44,11 +44,6 @@ def responses_impl(mock_apis):
     return OpenAIResponsesImpl(**mock_apis)
 
 
-# ============================================================================
-# Shield ID Extraction Tests
-# ============================================================================
-
-
 def test_extract_shield_ids_from_strings(responses_impl):
     """Test extraction from simple string shield IDs."""
     shields = ["llama-guard", "content-filter", "nsfw-detector"]
@@ -97,11 +92,6 @@ def test_extract_shield_ids_unknown_format(responses_impl, caplog):
     result = extract_shield_ids(shields)
     assert result == ["valid-shield", "another-shield"]
     assert "Unknown shield format" in caplog.text
-
-
-# ============================================================================
-# Text Content Extraction Tests
-# ============================================================================
 
 
 def test_extract_text_content_string(responses_impl):
@@ -175,11 +165,6 @@ def test_extract_text_content_none_input(responses_impl):
     """Test extraction with None input returns None."""
     result = extract_text_content(None)
     assert result is None
-
-
-# ============================================================================
-# Message Conversion Tests
-# ============================================================================
 
 
 def test_convert_user_message(responses_impl):

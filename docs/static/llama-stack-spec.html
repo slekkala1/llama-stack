@@ -5864,10 +5864,12 @@
                     "type": {
                         "type": "string",
                         "const": "refusal",
-                        "default": "refusal"
+                        "default": "refusal",
+                        "description": "Content part type identifier, always \"refusal\""
                     },
                     "refusal": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Refusal text supplied by the model"
                     }
                 },
                 "additionalProperties": false,
@@ -5875,7 +5877,8 @@
                     "type",
                     "refusal"
                 ],
-                "title": "OpenAIResponseContentPartRefusal"
+                "title": "OpenAIResponseContentPartRefusal",
+                "description": "Refusal content within a streamed response part."
             },
             "OpenAIResponseInputMessageContent": {
                 "oneOf": [
@@ -8417,28 +8420,6 @@
                 ],
                 "title": "OpenAIResponseContentPartReasoningText",
                 "description": "Reasoning text emitted as part of a streamed response."
-            },
-            "OpenAIResponseContentPartRefusal": {
-                "type": "object",
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "const": "refusal",
-                        "default": "refusal",
-                        "description": "Content part type identifier, always \"refusal\""
-                    },
-                    "refusal": {
-                        "type": "string",
-                        "description": "Refusal text supplied by the model"
-                    }
-                },
-                "additionalProperties": false,
-                "required": [
-                    "type",
-                    "refusal"
-                ],
-                "title": "OpenAIResponseContentPartRefusal",
-                "description": "Refusal content within a streamed response part."
             },
             "OpenAIResponseObjectStream": {
                 "oneOf": [
