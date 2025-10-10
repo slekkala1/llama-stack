@@ -15,12 +15,15 @@ from llama_stack.apis.agents.openai_responses import (
     ListOpenAIResponseInputItem,
     ListOpenAIResponseObject,
     OpenAIDeleteResponseObject,
+    OpenAIResponseContentPartRefusal,
     OpenAIResponseInput,
     OpenAIResponseInputMessageContentText,
     OpenAIResponseInputTool,
     OpenAIResponseMessage,
     OpenAIResponseObject,
     OpenAIResponseObjectStream,
+    OpenAIResponseObjectStreamResponseCompleted,
+    OpenAIResponseObjectStreamResponseCreated,
     OpenAIResponseText,
     OpenAIResponseTextFormat,
 )
@@ -31,9 +34,11 @@ from llama_stack.apis.conversations import Conversations
 from llama_stack.apis.conversations.conversations import ConversationItem
 from llama_stack.apis.inference import (
     Inference,
+    Message,
     OpenAIMessageParam,
     OpenAISystemMessageParam,
 )
+from llama_stack.apis.safety import Safety
 from llama_stack.apis.tools import ToolGroups, ToolRuntime
 from llama_stack.apis.vector_io import VectorIO
 from llama_stack.log import get_logger
@@ -42,12 +47,15 @@ from llama_stack.providers.utils.responses.responses_store import (
     _OpenAIResponseObjectWithInputAndMessages,
 )
 
+from ..safety import SafetyException
 from .streaming import StreamingResponseOrchestrator
 from .tool_executor import ToolExecutor
 from .types import ChatCompletionContext, ToolContext
 from .utils import (
     convert_response_input_to_chat_messages,
     convert_response_text_to_chat_response_format,
+    extract_shield_ids,
+    run_multiple_shields,
 )
 
 logger = get_logger(name=__name__, category="openai_responses")
@@ -67,6 +75,7 @@ class OpenAIResponsesImpl:
         responses_store: ResponsesStore,
         vector_io_api: VectorIO,  # VectorIO
         conversations_api: Conversations,
+        safety_api: Safety,
     ):
         self.inference_api = inference_api
         self.tool_groups_api = tool_groups_api
@@ -74,6 +83,7 @@ class OpenAIResponsesImpl:
         self.responses_store = responses_store
         self.vector_io_api = vector_io_api
         self.conversations_api = conversations_api
+        self.safety_api = safety_api
         self.tool_executor = ToolExecutor(
             tool_groups_api=tool_groups_api,
             tool_runtime_api=tool_runtime_api,
@@ -225,9 +235,7 @@ class OpenAIResponsesImpl:
         stream = bool(stream)
         text = OpenAIResponseText(format=OpenAIResponseTextFormat(type="text")) if text is None else text
 
-        # Shields parameter received via extra_body - not yet implemented
-        if shields is not None:
-            raise NotImplementedError("Shields parameter is not yet implemented in the meta-reference provider")
+        shield_ids = extract_shield_ids(shields) if shields else []
 
         if conversation is not None and previous_response_id is not None:
             raise ValueError(
@@ -255,6 +263,7 @@ class OpenAIResponsesImpl:
             text=text,
             tools=tools,
             max_infer_iters=max_infer_iters,
+            shield_ids=shield_ids,
         )
 
         if stream:
@@ -288,6 +297,42 @@ class OpenAIResponsesImpl:
                 raise ValueError("The response stream never reached a terminal state")
             return final_response
 
+    async def _check_input_safety(
+        self, messages: list[Message], shield_ids: list[str]
+    ) -> OpenAIResponseContentPartRefusal | None:
+        """Validate input messages against shields. Returns refusal content if violation found."""
+        try:
+            await run_multiple_shields(self.safety_api, messages, shield_ids)
+        except SafetyException as e:
+            logger.info(f"Input shield violation: {e.violation.user_message}")
+            return OpenAIResponseContentPartRefusal(
+                refusal=e.violation.user_message or "Content blocked by safety shields"
+            )
+
+    async def _create_refusal_response_events(
+        self, refusal_content: OpenAIResponseContentPartRefusal, response_id: str, created_at: int, model: str
+    ) -> AsyncIterator[OpenAIResponseObjectStream]:
+        """Create and yield refusal response events following the established streaming pattern."""
+        # Create initial response and yield created event
+        initial_response = OpenAIResponseObject(
+            id=response_id,
+            created_at=created_at,
+            model=model,
+            status="in_progress",
+            output=[],
+        )
+        yield OpenAIResponseObjectStreamResponseCreated(response=initial_response)
+
+        # Create completed refusal response using OpenAIResponseContentPartRefusal
+        refusal_response = OpenAIResponseObject(
+            id=response_id,
+            created_at=created_at,
+            model=model,
+            status="completed",
+            output=[OpenAIResponseMessage(role="assistant", content=[refusal_content], type="message")],
+        )
+        yield OpenAIResponseObjectStreamResponseCompleted(response=refusal_response)
+
     async def _create_streaming_response(
         self,
         input: str | list[OpenAIResponseInput],
@@ -301,6 +346,7 @@ class OpenAIResponsesImpl:
         text: OpenAIResponseText | None = None,
         tools: list[OpenAIResponseInputTool] | None = None,
         max_infer_iters: int | None = 10,
+        shield_ids: list[str] | None = None,
     ) -> AsyncIterator[OpenAIResponseObjectStream]:
         # Input preprocessing
         all_input, messages, tool_context = await self._process_input_with_previous_response(
@@ -333,8 +379,11 @@ class OpenAIResponsesImpl:
             text=text,
             max_infer_iters=max_infer_iters,
             tool_executor=self.tool_executor,
+            safety_api=self.safety_api,
+            shield_ids=shield_ids,
         )
 
+        # Output safety validation hook - delegated to streaming orchestrator for real-time validation
         # Stream the response
         final_response = None
         failed_response = None
