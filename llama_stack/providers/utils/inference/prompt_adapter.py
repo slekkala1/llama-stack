@@ -9,6 +9,7 @@ import base64
 import io
 import json
 import re
+from typing import Any
 
 import httpx
 from PIL import Image as PIL_Image
@@ -78,11 +79,7 @@ def decode_assistant_message(content: str, stop_reason: StopReason) -> RawMessag
 
 
 def interleaved_content_as_str(
-    content: InterleavedContent
-    | str
-    | list[OpenAIChatCompletionContentPartTextParam | OpenAIChatCompletionContentPartImageParam | OpenAIFile]
-    | list[OpenAIChatCompletionContentPartTextParam]
-    | None,
+    content: Any,
     sep: str = " ",
 ) -> str:
     if content is None:
@@ -91,13 +88,9 @@ def interleaved_content_as_str(
     def _process(c) -> str:
         if isinstance(c, str):
             return c
-        elif isinstance(c, ImageContentItem):
-            return "<image>"
-        elif isinstance(c, TextContentItem):
+        elif isinstance(c, TextContentItem) or isinstance(c, OpenAIChatCompletionContentPartTextParam):
             return c.text
-        elif isinstance(c, OpenAIChatCompletionContentPartTextParam):
-            return c.text
-        elif isinstance(c, OpenAIChatCompletionContentPartImageParam):
+        elif isinstance(c, ImageContentItem) or isinstance(c, OpenAIChatCompletionContentPartImageParam):
             return "<image>"
         elif isinstance(c, OpenAIFile):
             return "<file>"
