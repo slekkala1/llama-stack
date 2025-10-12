@@ -22,6 +22,7 @@ from llama_stack.apis.shields import Shield
 from llama_stack.core.utils.model_utils import model_local_dir
 from llama_stack.log import get_logger
 from llama_stack.providers.datatypes import ShieldsProtocolPrivate
+from llama_stack.providers.utils.inference.prompt_adapter import interleaved_content_as_str
 
 from .config import PromptGuardConfig, PromptGuardType
 
@@ -90,25 +91,9 @@ class PromptGuardShield:
         self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_dir, device_map=self.device)
 
-    def _extract_text_from_openai_content(self, content) -> str:
-        """Extract text content from OpenAI message content format."""
-        if isinstance(content, str):
-            return content
-        elif isinstance(content, list):
-            text_parts = []
-            for part in content:
-                if hasattr(part, "type") and part.type == "text":
-                    text_parts.append(part.text)
-                elif hasattr(part, "text"):
-                    text_parts.append(part.text)
-                # Skip non-text parts like images or files
-            return " ".join(text_parts)
-        else:
-            raise ValueError(f"Unsupported content type: {type(content)}")
-
     async def run(self, messages: list[OpenAIMessageParam]) -> RunShieldResponse:
         message = messages[-1]
-        text = self._extract_text_from_openai_content(message.content)
+        text = interleaved_content_as_str(message.content)
 
         # run model on messages and return response
         inputs = self.tokenizer(text, return_tensors="pt")
