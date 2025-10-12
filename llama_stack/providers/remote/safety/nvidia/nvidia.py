@@ -13,7 +13,6 @@ from llama_stack.apis.safety import ModerationObject, RunShieldResponse, Safety,
 from llama_stack.apis.shields import Shield
 from llama_stack.log import get_logger
 from llama_stack.providers.datatypes import ShieldsProtocolPrivate
-from llama_stack.providers.utils.inference.openai_compat import convert_message_to_openai_dict_new
 
 from .config import NVIDIASafetyConfig
 
@@ -132,10 +131,9 @@ class NeMoGuardrails:
         Raises:
             requests.HTTPError: If the POST request fails.
         """
-        request_messages = [await convert_message_to_openai_dict_new(message) for message in messages]
         request_data = {
             "model": self.model,
-            "messages": request_messages,
+            "messages": messages,
             "temperature": self.temperature,
             "top_p": 1,
             "frequency_penalty": 0,
