@@ -10,7 +10,7 @@ from typing import Any
 import litellm
 import requests
 
-from llama_stack.apis.inference import Message
+from llama_stack.apis.inference import OpenAIMessageParam
 from llama_stack.apis.safety import (
     RunShieldResponse,
     Safety,
@@ -72,7 +72,7 @@ class SambaNovaSafetyAdapter(Safety, ShieldsProtocolPrivate, NeedsRequestProvide
         pass
 
     async def run_shield(
-        self, shield_id: str, messages: list[Message], params: dict[str, Any] | None = None
+        self, shield_id: str, messages: list[OpenAIMessageParam], params: dict[str, Any] | None = None
     ) -> RunShieldResponse:
         shield = await self.shield_store.get_shield(shield_id)
         if not shield:

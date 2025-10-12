@@ -8,7 +8,7 @@ from typing import Any
 
 import requests
 
-from llama_stack.apis.inference import Message
+from llama_stack.apis.inference import OpenAIMessageParam
 from llama_stack.apis.safety import ModerationObject, RunShieldResponse, Safety, SafetyViolation, ViolationLevel
 from llama_stack.apis.shields import Shield
 from llama_stack.log import get_logger
@@ -44,7 +44,7 @@ class NVIDIASafetyAdapter(Safety, ShieldsProtocolPrivate):
         pass
 
     async def run_shield(
-        self, shield_id: str, messages: list[Message], params: dict[str, Any] | None = None
+        self, shield_id: str, messages: list[OpenAIMessageParam], params: dict[str, Any] | None = None
     ) -> RunShieldResponse:
         """
         Run a safety shield check against the provided messages.
@@ -118,7 +118,7 @@ class NeMoGuardrails:
         response.raise_for_status()
         return response.json()
 
-    async def run(self, messages: list[Message]) -> RunShieldResponse:
+    async def run(self, messages: list[OpenAIMessageParam]) -> RunShieldResponse:
         """
         Queries the /v1/guardrails/checks endpoint of the NeMo guardrails deployed API.
 
