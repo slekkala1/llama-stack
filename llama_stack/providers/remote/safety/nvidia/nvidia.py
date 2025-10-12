@@ -133,7 +133,7 @@ class NeMoGuardrails:
         """
         request_data = {
             "model": self.model,
-            "messages": messages,
+            "messages": [{"role": message.role, "content": message.content} for message in messages],
             "temperature": self.temperature,
             "top_p": 1,
             "frequency_penalty": 0,
