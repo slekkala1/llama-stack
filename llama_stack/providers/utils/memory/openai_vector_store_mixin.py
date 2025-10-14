@@ -438,7 +438,6 @@ class OpenAIVectorStoreMixin(ABC):
         }
 
         # Add provider information to metadata if provided
-        metadata = params.metadata or {}
         if provider_id:
             metadata["provider_id"] = provider_id
         if provider_vector_db_id:
