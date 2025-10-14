@@ -353,9 +353,25 @@ class OpenAIVectorStoreMixin(ABC):
         created_at = int(time.time())
 
         extra = params.model_extra or {}
+        metadata = params.metadata or {}
+
         provider_vector_db_id = extra.get("provider_vector_db_id")
-        embedding_model = extra.get("embedding_model")
-        embedding_dimension = extra.get("embedding_dimension")
+
+        # Use embedding info from metadata if available, otherwise from extra_body
+        if metadata.get("embedding_model"):
+            # If either is in metadata, use metadata as source
+            embedding_model = metadata.get("embedding_model")
+            embedding_dimension = int(metadata["embedding_dimensions"]) if metadata.get("embedding_dimensions") else 768
+
+            # Check for conflicts with extra_body
+            if (extra.get("embedding_model") and extra["embedding_model"] != embedding_model) or (
+                extra.get("embedding_dimension") and extra["embedding_dimension"] != embedding_dimension
+            ):
+                raise ValueError("Embedding config inconsistent between metadata and extra_body")
+        else:
+            embedding_model = extra.get("embedding_model")
+            embedding_dimension = extra.get("embedding_dimension", 768)
+
         # use provider_id set by router; fallback to provider's own ID when used directly via --stack-config
         provider_id = extra.get("provider_id") or getattr(self, "__provider_id__", None)
         # Derive the canonical vector_db_id (allow override, else generate)

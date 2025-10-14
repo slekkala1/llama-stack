@@ -1053,3 +1053,215 @@ async def test_openai_create_vector_store_uses_default_model(vector_io_adapter):
     call_args = vector_io_adapter.register_vector_db.call_args[0][0]
     assert call_args.embedding_model == "default-model"
     assert call_args.embedding_dimension == 512
+
+
+async def test_embedding_config_from_metadata(vector_io_adapter):
+    """Test that embedding configuration is correctly extracted from metadata."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with embedding config in metadata
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={
+            "embedding_model": "test-embedding-model",
+            "embedding_dimensions": "512",
+        },
+        model_extra={},
+    )
+
+    await vector_io_adapter.openai_create_vector_store(params)
+
+    # Verify VectorDB was registered with correct embedding config from metadata
+    vector_io_adapter.register_vector_db.assert_called_once()
+    call_args = vector_io_adapter.register_vector_db.call_args[0][0]
+    assert call_args.embedding_model == "test-embedding-model"
+    assert call_args.embedding_dimension == 512
+
+
+async def test_embedding_config_from_extra_body(vector_io_adapter):
+    """Test that embedding configuration is correctly extracted from extra_body when metadata is empty."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with embedding config in extra_body only (metadata has no embedding_model)
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={},  # Empty metadata to ensure extra_body is used
+        **{
+            "embedding_model": "extra-body-model",
+            "embedding_dimension": 1024,
+        },
+    )
+
+    await vector_io_adapter.openai_create_vector_store(params)
+
+    # Verify VectorDB was registered with correct embedding config from extra_body
+    vector_io_adapter.register_vector_db.assert_called_once()
+    call_args = vector_io_adapter.register_vector_db.call_args[0][0]
+    assert call_args.embedding_model == "extra-body-model"
+    assert call_args.embedding_dimension == 1024
+
+
+async def test_embedding_config_consistency_check_passes(vector_io_adapter):
+    """Test that consistent embedding config in both metadata and extra_body passes validation."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with consistent embedding config in both metadata and extra_body
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={
+            "embedding_model": "consistent-model",
+            "embedding_dimensions": "768",
+        },
+        **{
+            "embedding_model": "consistent-model",
+            "embedding_dimension": 768,
+        },
+    )
+
+    await vector_io_adapter.openai_create_vector_store(params)
+
+    # Should not raise any error and use metadata config
+    vector_io_adapter.register_vector_db.assert_called_once()
+    call_args = vector_io_adapter.register_vector_db.call_args[0][0]
+    assert call_args.embedding_model == "consistent-model"
+    assert call_args.embedding_dimension == 768
+
+
+async def test_embedding_config_inconsistency_error_model(vector_io_adapter):
+    """Test that inconsistent embedding model between metadata and extra_body raises error."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with inconsistent embedding model
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={
+            "embedding_model": "metadata-model",
+            "embedding_dimensions": "768",
+        },
+        **{
+            "embedding_model": "extra-body-model",
+            "embedding_dimension": 768,
+        },
+    )
+
+    with pytest.raises(ValueError, match="Embedding config inconsistent between metadata and extra_body"):
+        await vector_io_adapter.openai_create_vector_store(params)
+
+
+async def test_embedding_config_inconsistency_error_dimension(vector_io_adapter):
+    """Test that inconsistent embedding dimension between metadata and extra_body raises error."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with inconsistent embedding dimension
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={
+            "embedding_model": "same-model",
+            "embedding_dimensions": "512",
+        },
+        **{
+            "embedding_model": "same-model",
+            "embedding_dimension": 1024,
+        },
+    )
+
+    with pytest.raises(ValueError, match="Embedding config inconsistent between metadata and extra_body"):
+        await vector_io_adapter.openai_create_vector_store(params)
+
+
+async def test_embedding_config_defaults_when_missing(vector_io_adapter):
+    """Test that embedding dimension defaults to 768 when not provided."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with only embedding model, no dimension (metadata empty to use extra_body)
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={},  # Empty metadata to ensure extra_body is used
+        **{
+            "embedding_model": "model-without-dimension",
+        },
+    )
+
+    await vector_io_adapter.openai_create_vector_store(params)
+
+    # Should default to 768 dimensions
+    vector_io_adapter.register_vector_db.assert_called_once()
+    call_args = vector_io_adapter.register_vector_db.call_args[0][0]
+    assert call_args.embedding_model == "model-without-dimension"
+    assert call_args.embedding_dimension == 768
+
+
+async def test_embedding_config_partial_metadata_consistency(vector_io_adapter):
+    """Test that partial metadata (only model) with extra_body works correctly."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with only embedding model in metadata, dimension in extra_body
+    params = OpenAICreateVectorStoreRequestWithExtraBody(
+        name="test_store",
+        metadata={
+            "embedding_model": "metadata-model",
+        },
+        **{
+            "embedding_model": "metadata-model",
+            "embedding_dimension": 512,
+        },
+    )
+
+    await vector_io_adapter.openai_create_vector_store(params)
+
+    # Should use metadata as source (defaults dimension to 768 since not in metadata)
+    vector_io_adapter.register_vector_db.assert_called_once()
+    call_args = vector_io_adapter.register_vector_db.call_args[0][0]
+    assert call_args.embedding_model == "metadata-model"
+    assert call_args.embedding_dimension == 768  # Default since not in metadata
+
+
+async def test_embedding_config_required_model_missing(vector_io_adapter):
+    """Test that missing embedding model raises error."""
+    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
+
+    # Mock register_vector_db to avoid actual registration
+    vector_io_adapter.register_vector_db = AsyncMock()
+    # Set provider_id attribute for the adapter
+    vector_io_adapter.__provider_id__ = "test_provider"
+
+    # Test with no embedding model provided
+    params = OpenAICreateVectorStoreRequestWithExtraBody(name="test_store", metadata={})
+
+    with pytest.raises(ValueError, match="Embedding model is required"):
+        await vector_io_adapter.openai_create_vector_store(params)
