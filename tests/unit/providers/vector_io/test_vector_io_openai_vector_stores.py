@@ -1057,7 +1057,6 @@ async def test_openai_create_vector_store_uses_default_model(vector_io_adapter):
 
 async def test_embedding_config_from_metadata(vector_io_adapter):
     """Test that embedding configuration is correctly extracted from metadata."""
-    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
 
     # Mock register_vector_db to avoid actual registration
     vector_io_adapter.register_vector_db = AsyncMock()
@@ -1085,7 +1084,6 @@ async def test_embedding_config_from_metadata(vector_io_adapter):
 
 async def test_embedding_config_from_extra_body(vector_io_adapter):
     """Test that embedding configuration is correctly extracted from extra_body when metadata is empty."""
-    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
 
     # Mock register_vector_db to avoid actual registration
     vector_io_adapter.register_vector_db = AsyncMock()
@@ -1113,7 +1111,6 @@ async def test_embedding_config_from_extra_body(vector_io_adapter):
 
 async def test_embedding_config_consistency_check_passes(vector_io_adapter):
     """Test that consistent embedding config in both metadata and extra_body passes validation."""
-    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
 
     # Mock register_vector_db to avoid actual registration
     vector_io_adapter.register_vector_db = AsyncMock()
@@ -1144,7 +1141,6 @@ async def test_embedding_config_consistency_check_passes(vector_io_adapter):
 
 async def test_embedding_config_inconsistency_errors(vector_io_adapter):
     """Test that inconsistent embedding config between metadata and extra_body raises errors."""
-    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
 
     # Mock register_vector_db to avoid actual registration
     vector_io_adapter.register_vector_db = AsyncMock()
@@ -1189,7 +1185,6 @@ async def test_embedding_config_inconsistency_errors(vector_io_adapter):
 
 async def test_embedding_config_defaults_when_missing(vector_io_adapter):
     """Test that embedding dimension defaults to 768 when not provided."""
-    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
 
     # Mock register_vector_db to avoid actual registration
     vector_io_adapter.register_vector_db = AsyncMock()
@@ -1216,7 +1211,6 @@ async def test_embedding_config_defaults_when_missing(vector_io_adapter):
 
 async def test_embedding_config_required_model_missing(vector_io_adapter):
     """Test that missing embedding model raises error."""
-    from llama_stack.apis.vector_io import OpenAICreateVectorStoreRequestWithExtraBody
 
     # Mock register_vector_db to avoid actual registration
     vector_io_adapter.register_vector_db = AsyncMock()
