@@ -350,7 +350,7 @@ async def run_multiple_guardrails(safety_api: Safety, messages: str, guardrail_i
                 return message
 
 
-def extract_guardrail_ids(guardrails: list | None) -> list[str]:
+def extract_guardrail_ids(guardrails: list[str | ResponseGuardrailSpec] | None) -> list[str]:
     """Extract guardrail IDs from guardrails parameter, handling both string IDs and ResponseGuardrailSpec objects."""
     if not guardrails:
         return []
