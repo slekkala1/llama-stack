@@ -1068,7 +1068,7 @@ async def test_embedding_config_from_metadata(vector_io_adapter):
         name="test_store",
         metadata={
             "embedding_model": "test-embedding-model",
-            "embedding_dimensions": "512",
+            "embedding_dimension": "512",
         },
         model_extra={},
     )
@@ -1122,7 +1122,7 @@ async def test_embedding_config_consistency_check_passes(vector_io_adapter):
         name="test_store",
         metadata={
             "embedding_model": "consistent-model",
-            "embedding_dimensions": "768",
+            "embedding_dimension": "768",
         },
         **{
             "embedding_model": "consistent-model",
@@ -1152,7 +1152,7 @@ async def test_embedding_config_inconsistency_errors(vector_io_adapter):
         name="test_store",
         metadata={
             "embedding_model": "metadata-model",
-            "embedding_dimensions": "768",
+            "embedding_dimension": "768",
         },
         **{
             "embedding_model": "extra-body-model",
@@ -1171,7 +1171,7 @@ async def test_embedding_config_inconsistency_errors(vector_io_adapter):
         name="test_store",
         metadata={
             "embedding_model": "same-model",
-            "embedding_dimensions": "512",
+            "embedding_dimension": "512",
         },
         **{
             "embedding_model": "same-model",

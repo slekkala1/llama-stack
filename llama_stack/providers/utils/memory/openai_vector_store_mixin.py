@@ -352,28 +352,29 @@ class OpenAIVectorStoreMixin(ABC):
         """Creates a vector store."""
         created_at = int(time.time())
 
-        extra = params.model_extra or {}
+        # Extract llama-stack-specific parameters from extra_body
+        extra_body = params.model_extra or {}
         metadata = params.metadata or {}
 
-        provider_vector_db_id = extra.get("provider_vector_db_id")
+        provider_vector_db_id = extra_body.get("provider_vector_db_id")
 
         # Use embedding info from metadata if available, otherwise from extra_body
         if metadata.get("embedding_model"):
             # If either is in metadata, use metadata as source
             embedding_model = metadata.get("embedding_model")
-            embedding_dimension = int(metadata["embedding_dimensions"]) if metadata.get("embedding_dimensions") else 768
+            embedding_dimension = int(metadata["embedding_dimension"]) if metadata.get("embedding_dimension") else 768
 
             # Check for conflicts with extra_body
-            if (extra.get("embedding_model") and extra["embedding_model"] != embedding_model) or (
-                extra.get("embedding_dimension") and extra["embedding_dimension"] != embedding_dimension
+            if (extra_body.get("embedding_model") and extra_body["embedding_model"] != embedding_model) or (
+                extra_body.get("embedding_dimension") and extra_body["embedding_dimension"] != embedding_dimension
             ):
                 raise ValueError("Embedding config inconsistent between metadata and extra_body")
         else:
-            embedding_model = extra.get("embedding_model")
-            embedding_dimension = extra.get("embedding_dimension", 768)
+            embedding_model = extra_body.get("embedding_model")
+            embedding_dimension = extra_body.get("embedding_dimension", 768)
 
         # use provider_id set by router; fallback to provider's own ID when used directly via --stack-config
-        provider_id = extra.get("provider_id") or getattr(self, "__provider_id__", None)
+        provider_id = extra_body.get("provider_id") or getattr(self, "__provider_id__", None)
         # Derive the canonical vector_db_id (allow override, else generate)
         vector_db_id = provider_vector_db_id or generate_object_id("vector_store", lambda: f"vs_{uuid.uuid4()}")
 
