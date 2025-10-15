@@ -1160,7 +1160,7 @@ async def test_embedding_config_inconsistency_errors(vector_io_adapter):
         },
     )
 
-    with pytest.raises(ValueError, match="Embedding config inconsistent between metadata and extra_body"):
+    with pytest.raises(ValueError, match="Embedding model inconsistent between metadata"):
         await vector_io_adapter.openai_create_vector_store(params)
 
     # Reset mock for second test
@@ -1179,7 +1179,7 @@ async def test_embedding_config_inconsistency_errors(vector_io_adapter):
         },
     )
 
-    with pytest.raises(ValueError, match="Embedding config inconsistent between metadata and extra_body"):
+    with pytest.raises(ValueError, match="Embedding dimension inconsistent between metadata"):
         await vector_io_adapter.openai_create_vector_store(params)
 
 
@@ -1216,9 +1216,11 @@ async def test_embedding_config_required_model_missing(vector_io_adapter):
     vector_io_adapter.register_vector_db = AsyncMock()
     # Set provider_id attribute for the adapter
     vector_io_adapter.__provider_id__ = "test_provider"
+    # Mock the default model lookup to return None (no default model available)
+    vector_io_adapter._get_default_embedding_model_and_dimension = AsyncMock(return_value=None)
 
     # Test with no embedding model provided
     params = OpenAICreateVectorStoreRequestWithExtraBody(name="test_store", metadata={})
 
-    with pytest.raises(ValueError, match="Embedding model is required"):
+    with pytest.raises(ValueError, match="embedding_model is required in extra_body when creating a vector store"):
         await vector_io_adapter.openai_create_vector_store(params)
