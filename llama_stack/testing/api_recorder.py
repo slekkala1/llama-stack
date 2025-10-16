@@ -419,9 +419,20 @@ class ResponseStorage:
         """
         response_file = f"{request_hash}.json"
 
+        # DEBUG: Add logging for Docker troubleshooting
+        import os
+
+        logger.info(f"find_recording: Current working dir: {os.getcwd()}")
+        logger.info(f"find_recording: Test context: {get_test_context()}")
+        logger.info(f"find_recording: Base dir: {self.base_dir}")
+
         # Try test-specific directory first
         test_dir = self._get_test_dir()
         response_path = test_dir / response_file
+
+        logger.info(f"find_recording: Test dir: {test_dir}")
+        logger.info(f"find_recording: Looking for: {response_path}")
+        logger.info(f"find_recording: Primary path exists: {response_path.exists()}")
 
         if response_path.exists():
             return _recording_from_file(response_path)
@@ -430,9 +441,14 @@ class ResponseStorage:
         fallback_dir = self.base_dir / "recordings"
         fallback_path = fallback_dir / response_file
 
+        logger.info(f"find_recording: Fallback dir: {fallback_dir}")
+        logger.info(f"find_recording: Fallback path: {fallback_path}")
+        logger.info(f"find_recording: Fallback path exists: {fallback_path.exists()}")
+
         if fallback_path.exists():
             return _recording_from_file(fallback_path)
 
+        logger.info(f"find_recording: Recording not found in either location for hash: {request_hash}")
         return None
 
     def _model_list_responses(self, request_hash: str) -> list[dict[str, Any]]:
