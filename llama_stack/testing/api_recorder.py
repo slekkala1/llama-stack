@@ -354,10 +354,19 @@ class ResponseStorage:
             # -> get "tests/integration/inference"
             test_file = test_id.split("::")[0]  # Remove test function part
             test_dir = Path(test_file).parent  # Get parent directory
+            recordings_dir = test_dir / "recordings"
 
-            # Put recordings in a "recordings" subdirectory of the test's parent dir
-            # e.g., "tests/integration/inference" -> "tests/integration/inference/recordings"
-            return test_dir / "recordings"
+            # Try relative to current working directory first (existing behavior)
+            if recordings_dir.exists():
+                return recordings_dir
+
+            # Fallback: try relative to base_dir (for Docker containers)
+            fallback_dir = self.base_dir / recordings_dir
+            if fallback_dir.exists():
+                return fallback_dir
+
+            # Return the original for consistency
+            return recordings_dir
         else:
             # Fallback for non-test contexts
             return self.base_dir / "recordings"
@@ -448,15 +457,7 @@ class ResponseStorage:
         if fallback_path.exists():
             return _recording_from_file(fallback_path)
 
-        # NEW: Recursive search within base_dir if exact paths fail
-        logger.info(f"find_recording: Exact paths failed, searching recursively in {self.base_dir}")
-
-        # Search for the file recursively within base_dir
-        for found_path in Path(self.base_dir).rglob(response_file):
-            logger.info(f"find_recording: Found recording at: {found_path}")
-            return _recording_from_file(found_path)
-
-        logger.info(f"find_recording: Recording not found anywhere for hash: {request_hash}")
+        logger.info(f"find_recording: Recording not found for hash: {request_hash}")
         return None
 
     def _model_list_responses(self, request_hash: str) -> list[dict[str, Any]]:
