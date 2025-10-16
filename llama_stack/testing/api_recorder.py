@@ -448,7 +448,15 @@ class ResponseStorage:
         if fallback_path.exists():
             return _recording_from_file(fallback_path)
 
-        logger.info(f"find_recording: Recording not found in either location for hash: {request_hash}")
+        # NEW: Recursive search within base_dir if exact paths fail
+        logger.info(f"find_recording: Exact paths failed, searching recursively in {self.base_dir}")
+
+        # Search for the file recursively within base_dir
+        for found_path in Path(self.base_dir).rglob(response_file):
+            logger.info(f"find_recording: Found recording at: {found_path}")
+            return _recording_from_file(found_path)
+
+        logger.info(f"find_recording: Recording not found anywhere for hash: {request_hash}")
         return None
 
     def _model_list_responses(self, request_hash: str) -> list[dict[str, Any]]:
