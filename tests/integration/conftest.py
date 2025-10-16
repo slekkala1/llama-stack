@@ -42,7 +42,7 @@ def pytest_sessionstart(session):
 
     # Set test stack config type for api_recorder test isolation
     stack_config = session.config.getoption("--stack-config", default=None)
-    if stack_config and stack_config.startswith("server:"):
+    if stack_config and (stack_config.startswith("server:") or stack_config.startswith("http")):
         os.environ["LLAMA_STACK_TEST_STACK_CONFIG_TYPE"] = "server"
         logger.info(f"Test stack config type: server (stack_config={stack_config})")
     else:
