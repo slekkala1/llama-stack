@@ -354,19 +354,9 @@ class ResponseStorage:
             # -> get "tests/integration/inference"
             test_file = test_id.split("::")[0]  # Remove test function part
             test_dir = Path(test_file).parent  # Get parent directory
-            recordings_dir = test_dir / "recordings"
-
-            # Try relative to current working directory first (existing behavior)
-            if recordings_dir.exists():
-                return recordings_dir
-
-            # Fallback: try relative to base_dir (for Docker containers)
-            fallback_dir = self.base_dir / recordings_dir
-            if fallback_dir.exists():
-                return fallback_dir
-
-            # Return the original for consistency
-            return recordings_dir
+            # Put recordings in a "recordings" subdirectory of the test's parent dir
+            # e.g., "tests/integration/inference" -> "tests/integration/inference/recordings"
+            return test_dir / "recordings"
         else:
             # Fallback for non-test contexts
             return self.base_dir / "recordings"
@@ -447,7 +437,8 @@ class ResponseStorage:
             return _recording_from_file(response_path)
 
         # Fallback to base recordings directory (for session-level recordings)
-        fallback_dir = self.base_dir / "recordings"
+        # Always use DEFAULT_STORAGE_DIR for stage 2, not the env var
+        fallback_dir = DEFAULT_STORAGE_DIR / "recordings"
         fallback_path = fallback_dir / response_file
 
         logger.info(f"find_recording: Fallback dir: {fallback_dir}")
@@ -457,7 +448,20 @@ class ResponseStorage:
         if fallback_path.exists():
             return _recording_from_file(fallback_path)
 
-        logger.info(f"find_recording: Recording not found for hash: {request_hash}")
+        # Stage 3: Recursive search using env var if set
+        search_dir = os.environ.get("LLAMA_STACK_TEST_RECORDING_DIR")
+        if search_dir:
+            search_path = Path(search_dir)
+            logger.info(f"find_recording: Exact paths failed, searching recursively in {search_path}")
+
+            # Search for the file recursively within the specified directory
+            for found_path in search_path.rglob(response_file):
+                logger.info(f"find_recording: Found recording at: {found_path}")
+                return _recording_from_file(found_path)
+        else:
+            logger.info("find_recording: No LLAMA_STACK_TEST_RECORDING_DIR set, skipping recursive search")
+
+        logger.info(f"find_recording: Recording not found anywhere for hash: {request_hash}")
         return None
 
     def _model_list_responses(self, request_hash: str) -> list[dict[str, Any]]:
