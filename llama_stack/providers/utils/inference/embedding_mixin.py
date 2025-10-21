@@ -93,11 +93,7 @@ class SentenceTransformerEmbeddingMixin:
                 # PyTorch's OpenMP kernels can segfault on macOS when spawned from background
                 # threads with the default parallel settings, so force a single-threaded CPU run.
                 log.debug(f"Constraining torch threads on {platform_name} to a single worker")
-                try:
-                    torch.set_num_threads(1)
-                    torch.set_num_interop_threads(1)
-                except Exception:
-                    log.debug(f"Failed to adjust torch thread counts on {platform_name}", exc_info=True)
+                torch.set_num_threads(1)
 
             return SentenceTransformer(model, trust_remote_code=True)
 
