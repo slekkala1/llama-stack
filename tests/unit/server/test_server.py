@@ -165,13 +165,13 @@ class TestTranslateException:
         assert result.detail == "Internal server error: An unexpected error occurred."
 
     def test_translate_runtime_error(self):
-        """Test that RuntimeError is translated to 500 HTTP status."""
+        """Test that RuntimeError is translated to 500 HTTP status with actual error message."""
         exc = RuntimeError("Runtime error")
         result = translate_exception(exc)
 
         assert isinstance(result, HTTPException)
         assert result.status_code == 500
-        assert result.detail == "Internal server error: An unexpected error occurred."
+        assert result.detail == "Runtime error"
 
     def test_multiple_access_denied_scenarios(self):
         """Test various scenarios that should result in 403 status codes."""
