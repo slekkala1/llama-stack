@@ -17,26 +17,17 @@ logger = get_logger(name=__name__)
 class RuntimeErrorRule:
     code: str
     default_message: str
-    substrings: tuple[str, ...] = ()
     regex: re.Pattern[str] | None = None
     template: str | None = None
 
     def evaluate(self, error_msg: str) -> str | None:
-        """
-        Returns the sanitized message if the rule matches, otherwise None.
-        """
-        if self.regex:
-            match = self.regex.search(error_msg)
-            if match:
-                if self.template:
-                    try:
-                        return self.template.format(**match.groupdict())
-                    except Exception:  # pragma: no cover - defensive
-                        logger.debug("Failed to format sanitized runtime error message", exc_info=True)
-                return self.default_message
-
-        lowered = error_msg.lower()
-        if self.substrings and all(pattern in lowered for pattern in self.substrings):
+        """Return the sanitized message if this rule matches, otherwise None."""
+        if self.regex and (match := self.regex.search(error_msg)):
+            if self.template:
+                try:
+                    return self.template.format(**match.groupdict())
+                except Exception:  # pragma: no cover - defensive
+                    logger.debug("Failed to format sanitized runtime error message", exc_info=True)
             return self.default_message
 
         return None
