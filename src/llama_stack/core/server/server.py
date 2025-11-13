@@ -45,6 +45,7 @@ from llama_stack.core.request_headers import (
     user_from_scope,
 )
 from llama_stack.core.server.routes import get_all_api_routes
+from llama_stack.core.server.runtime_error_sanitizer import sanitize_runtime_error
 from llama_stack.core.stack import (
     Stack,
     cast_image_name_to_string,
@@ -129,9 +130,6 @@ def translate_exception(exc: Exception) -> HTTPException | RequestValidationErro
         return HTTPException(status_code=httpx.codes.NOT_IMPLEMENTED, detail=f"Not implemented: {str(exc)}")
     elif isinstance(exc, AuthenticationRequiredError):
         return HTTPException(status_code=httpx.codes.UNAUTHORIZED, detail=f"Authentication required: {str(exc)}")
-    elif isinstance(exc, RuntimeError):
-        # Preserve the actual RuntimeError message for diagnosability
-        return HTTPException(status_code=httpx.codes.INTERNAL_SERVER_ERROR, detail=str(exc))
     elif hasattr(exc, "status_code") and isinstance(getattr(exc, "status_code", None), int):
         # Handle provider SDK exceptions (e.g., OpenAI's APIStatusError and subclasses)
         # These include AuthenticationError (401), PermissionDeniedError (403), etc.
@@ -140,9 +138,16 @@ def translate_exception(exc: Exception) -> HTTPException | RequestValidationErro
         detail = str(exc)
         return HTTPException(status_code=status_code, detail=detail)
     else:
+        detail = "Internal server error: An unexpected error occurred."
+        if isinstance(exc, RuntimeError):
+            sanitized = sanitize_runtime_error(exc)
+            if sanitized:
+                logger.warning("RuntimeError sanitized as %s: %s", sanitized.code, str(exc))
+                detail = f"{sanitized.code}: {sanitized.message}"
+
         return HTTPException(
             status_code=httpx.codes.INTERNAL_SERVER_ERROR,
-            detail="Internal server error: An unexpected error occurred.",
+            detail=detail,
         )
 
 
