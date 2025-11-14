@@ -165,7 +165,7 @@ class TestTranslateException:
         assert result.detail == "Internal server error: An unexpected error occurred."
 
     def test_translate_runtime_error(self):
-        """Test that RuntimeError without a sanitizer rule returns generic server error."""
+        """Test that RuntimeError is translated to 500 HTTP status."""
         exc = RuntimeError("Runtime error")
         result = translate_exception(exc)
 
